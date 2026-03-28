@@ -1,10 +1,11 @@
 # Agent-Based Model for Equity-Oriented Water Reallocation in the Geum River Basin
 
 **Author:** Yeonju Kim
+
 **Affiliations:** University of Connecticut
+
 **Contact:** iamkimyeonju@gmail.com
 
-**Created:** 2024-06-25 | **Last updated:** 2025-07-13
 
 ---
 
@@ -12,8 +13,6 @@
 
 This repository contains the R code and input data for an agent-based model (ABM) that simulates water reallocation in the **Geum River Basin (금강유역), South Korea**, under historical drought conditions. The model evaluates trade-offs between **system efficiency** (profit ratio) and **distributional equity** (Gini coefficient) when virtual diversion channels are activated by water-stressed agents.
 
-The associated paper:
-> *Agent-Based Simulation of Equity-Oriented Water Reallocation under Drought* (see `Agent_Based_Simulation_of_Equity_Oriented_Water_Reallocation_under_Drought.pdf`)
 
 ---
 
@@ -28,12 +27,9 @@ The associated paper:
 ├── Agent_based_Geum_diversion_v3.R            # ABM — diversion v3
 ├── Agent_based_Geum_diversion_v4.R            # ABM — diversion v4 (current, used in sensitivity analysis)
 ├── function_for_Geum.R                        # Network solver + optimization objective functions
-├── Optimization.R                             # Single- and multi-objective optimization
 ├── inflow_history.R                           # Historical inflow preprocessing & drought identification
 ├── sensitivity_analysis.Rmd                   # Sensitivity analysis: behavioral scenarios
-├── ABM_Rmarkdown.Rmd                          # Full analysis report (R Markdown)
-├── Decision_Scaling.R                         # Decision scaling analysis
-├── Geum_Basin_Water_Allocation.R              # Water allocation baseline
+├── ABM_result_figures.Rmd                     # Full analysis report (R Markdown)
 │
 ├── data/
 │   ├── Netflow_1981-2020.csv                  # SWAT-simulated daily streamflow (CMS)
@@ -75,39 +71,9 @@ All input data files are located in the `data/` folder.
 | `data/하천수허가량(금강홍수통제소).csv` | Geum River Flood Control Office | — | Licensed river water withdrawal permits. |
 | `data/drought scenario/Sub-basin_runoff_GG_DU*_RD*.csv` | External sub-project (legacy) | CMS (daily, starting October) | 22 sub-basin drought runoff scenarios. No longer used in the current version. |
 
----
-
-## Code Files
-
-### `ABM.R` — Main Entry Point
-
-Loads the core ABM functions and runs the four primary simulation cases:
-
-```r
-with_ABM                    <- Agent_Geum_Network(ABM = TRUE,  opt_year = 39)
-without_ABM                 <- Agent_Geum_Network(ABM = FALSE, opt_year = 39)
-with_ABM_new_diversion      <- Agent_Geum_Network_Diversion(ABM = TRUE,  opt_year = 39)
-without_ABM_new_diversion   <- Agent_Geum_Network_Diversion(ABM = FALSE, opt_year = 39)
-```
-
-Exports monthly agricultural supply and demand results to `result_csv/Agr_result.xlsx`.
 
 ---
 
-### `Agent_based_Geum.R` — Base Network ABM
-
-**Function:** `Agent_Geum_Network(supply_scenario, demand_scenario, opt_year, ABM)`
-
-Simulates the Geum River Basin water allocation network **without** virtual diversion channels. When `ABM = TRUE`, agents with unmet demand attempt to negotiate water transfers from neighboring nodes according to a distance-decay probability rule.
-
-**Key parameters:**
-
-| Parameter | Default | Range | Description |
-|-----------|---------|-------|-------------|
-| `supply_scenario` | `1` | `0.9 – 1.1` | Multiplier applied to all multipurpose dam releases. Values < 1 represent reduced supply (drought stress); values > 1 represent increased supply. |
-| `demand_scenario` | `1` | `0.8 – 1.2` | Multiplier applied to all stakeholder demands **except** dams. Scales agricultural, intake, and hydropower demands simultaneously. |
-| `opt_year` | `10` | `1 – 39` | Simulation length in years. Set to `39` for the full 1981–2020 historical period. Each year is fixed at 365 days (leap years ignored). |
-| `ABM` | `TRUE` | `TRUE / FALSE` | Toggles agent-based reallocation. `FALSE` runs the baseline rule-based allocation only. |
 
 **Return rate constants (α):**
 
@@ -130,27 +96,6 @@ Simulates the Geum River Basin water allocation network **without** virtual dive
 
 Boryeong Dam has a fixed waterway transfer capacity of **3.45 MCM/day** connecting it to the main channel.
 
-**Network nodes:**
-
-The river network is abstracted into six junction nodes (A–F) and two outlets, routing flow from upstream multipurpose dams through tributaries to the estuary barrage.
-
-**Output object (list):**
-
-| Element | Description |
-|---------|-------------|
-| `Gini_coefficient` | Overall Gini coefficient (equity across all stakeholders) |
-| `Gini_agr` | Gini for agricultural stakeholders only |
-| `Gini_intake` | Gini for water intake (municipal/industrial) stakeholders |
-| `Gini_power` | Gini for hydropower stakeholders |
-| `Profit_ratio` | System-wide profit ratio (efficiency) |
-| `Profit_ratio_agr` | Agricultural sector profit ratio |
-| `Profit_ratio_intake` | Intake sector profit ratio |
-| `Profit_ratio_power` | Hydropower sector profit ratio |
-| `df_agr` | Matrix (days × 14): daily water supplied to each agricultural stakeholder (MCM) |
-| `org_demand_agr` | Matrix (days × 14): daily water demand for each agricultural stakeholder (MCM) |
-| `gg_agr` | ggplot object: agricultural supply time series |
-
----
 
 ### `Agent_based_Geum_diversion_v1.R` to `v4.R` — Diversion Network ABM
 
@@ -180,12 +125,6 @@ A vector of four activation probabilities corresponding to Manhattan distances d
 | **Bounded Rational** (default) | **0.90** | **0.60** | **0.30** | **0.10** | Agents balance self-interest with network awareness |
 | Self-interested | 0.50 | 0.10 | 0.02 | 0.00 | Agents rarely donate; strongly prefer nearby beneficiaries |
 
-**Additional output elements:**
-
-| Element | Description |
-|---------|-------------|
-| `activation` | Matrix (days × 7): `1` if diversion is active on that day, `0` otherwise |
-| `help` | Matrix (days × 7): volume of water transferred through each diversion (MCM/day) |
 
 **Version history:**
 
@@ -198,43 +137,6 @@ A vector of four activation probabilities corresponding to Manhattan distances d
 
 ---
 
-### `function_for_Geum.R` — Network Solver and Objective Functions
-
-**Function:** `Geum_Network(supply_scenario, demand_scenario, drought_scenario, alpha1, alpha2, alpha3)`
-
-Calculates the full Geum River network water balance and returns optimization objective values. Used by `Optimization.R`.
-
-**Parameters `alpha1`, `alpha2`, `alpha3`:** Weights for the three optimization objectives (efficiency, equity, combined). Set to `1` for equal weighting.
-
----
-
-### `Optimization.R` — Single- and Multi-Objective Optimization
-
-Uses `function_for_Geum.R` to optimize dam release rules via genetic algorithms.
-
-**Optimization problems:**
-
-| Problem | Objective | Package | Runtime (Thinkpad Ryzen Pro 7) |
-|---------|-----------|---------|-------------------------------|
-| Efficiency | Maximize system profit ratio | `GA` | ~8 hrs |
-| Equity | Minimize Gini coefficient | `GA` | ~8 hrs |
-| Multi-objective | Pareto front (efficiency vs equity) | `mco` (NSGA-II) | ~8 hrs |
-
-**Total runtime for all three runs: ~24 hours.**
-
-Pre-computed optimization results are included in the repository so results can be reproduced without re-running the full optimization.
-
-**Key output variables:**
-
-| Variable | Description |
-|----------|-------------|
-| `Efficiency` | Optimal parameter set maximizing system profit |
-| `Equity` | Optimal parameter set minimizing Gini coefficient |
-| `solution_Eff` | Basin-wide simulation applying the Efficiency solution |
-| `solution_Equ` | Basin-wide simulation applying the Equity solution |
-| `multi_nsga` | NSGA-II Pareto front result |
-
----
 
 ### `inflow_history.R` — Historical Inflow Analysis
 
@@ -261,15 +163,7 @@ Preprocesses SWAT streamflow data and identifies historical drought events using
 | 301103 | Baekgok Dam (백곡댐) |
 | 320305 | Boryeong Dam (보령댐) |
 
-**Drought threshold:** 20th percentile of historical monthly total basin inflow, computed separately for each calendar month (seasonally adjusted fixed threshold).
 
-**`run_theory_events(df, threshold_table)` — outputs:**
-
-| Element | Description |
-|---------|-------------|
-| `series` | Full time series with deficit and drought flag per month |
-| `events` | Table of detected drought events with L (duration, months), D (total deficit, MCM), I (mean monthly deficit, MCM/month) |
-| `idf` | Events sorted by intensity with empirical return period T = (n+1)/rank |
 
 ---
 
@@ -293,28 +187,6 @@ A value equal to `opt_year × (days in irrigation season)` indicates full demand
 
 ---
 
-## Simulation Setup
-
-```r
-# Set working directory to the project folder before running
-setwd("path/to/Agent-based model")
-
-# Example: full 39-year simulation with ABM and default settings
-set.seed(1125)
-result <- Agent_Geum_Network_Diversion(
-  supply_scenario = 1,    # no supply scaling
-  demand_scenario = 1,    # no demand scaling
-  opt_year        = 39,   # full 1981–2020 period
-  ABM             = TRUE,
-  p_vec           = c(0.90, 0.60, 0.30, 0.10)  # Bounded Rational (default)
-)
-```
-
-**Simulation assumptions:**
-- Each year has exactly **365 days** (leap days removed from inflow data)
-- Calendar starts in **October** (water year convention)
-- Monthly structure uses: Oct(31), Nov(30), Dec(31), Jan(31), Feb(28), Mar(31), Apr(30), May(31), Jun(30), Jul(31), Aug(31), Sep(30)
-
 ---
 
 ## Dependencies
@@ -329,13 +201,3 @@ install.packages(c(
 ))
 ```
 
----
-
-## Update History
-
-| Date | Changes |
-|------|---------|
-| 2024-06-25 | Initial version |
-| 2024-08-31 | First revision |
-| 2025-01-28 | Agricultural reservoir (Baekgok, Tapjeong) operation rules adjusted to prevent negative minimum flow; monetary unit clarification |
-| 2025-07-13 | `Agent_based_Geum_diversion_v4.R`: fixed Node_D bug, corrected ABM update window, removed Feb 29 from inflow, fixed day annotation, added demand_scenario assignment, added Dam2_Spillway |
