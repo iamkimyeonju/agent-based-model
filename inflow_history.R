@@ -38,7 +38,7 @@ runoff_code <- list(용담댐 = c(300101,300102,300103,300104,300105,300106,3001
 
 
 
-runoff_array <- read_csv("Netflow_1981-2020.csv") 
+runoff_array <- read_csv("data/Netflow_1981-2020.csv") 
 runoff_array[, 2:ncol(runoff_array)] <- runoff_array[, 2:ncol(runoff_array)] * 86400 / 1e6 #CMS --> m^3/day --> MCM/day
 runoff_array$Time <- as.Date(runoff_array$Time)
 

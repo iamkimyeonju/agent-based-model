@@ -1,10 +1,3 @@
-################################################################################
-# 작성자: 김연주
-# 금강유역 Agent-based model 파일
-# 문의 or 오류 신고 : iamkimyeonju@gmail.com
-# 최종 수정일 : 2025년 6월 16일
-################################################################################
-
 setwd("G:/My Drive/University of Seoul/Agent-based model")
 library(ggplot2)
 library(reshape2)
@@ -17,7 +10,7 @@ library(writexl)
 
 #source("function_for_Geum.R")
 source("Agent_based_Geum.R")
-source("Agent_based_Geum_diversion_v1.R")
+source("Agent_based_Geum_diversion_v4.R")
 
 # running ABM ------------------------------------------------------------------
 

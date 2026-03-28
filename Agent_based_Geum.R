@@ -1,10 +1,3 @@
-# ------------------------------------------------------------------------------
-# 작성자: 김연주
-# 금강유역 Agent-based_Geum 파일
-# 문의 or 오류 신고 : iamkimyeonju@gmail.com
-# 최종 수정일 : 2025년 7월 13일
-# ------------------------------------------------------------------------------
-
 # UConn computer
 setwd("G:/My Drive/University of Seoul/3차년도/Research/코드n자료")
 #source("function_for_Geum.R")
@@ -86,7 +79,7 @@ Agent_Geum_Network <- function(supply_scenario = 1, demand_scenario = 1,  opt_ye
 
 
   
-  runoff_array <- read_csv("Netflow_1981-2020.csv") 
+  runoff_array <- read_csv("data/Netflow_1981-2020.csv") 
   runoff_array[, 2:ncol(runoff_array)] <- runoff_array[, 2:ncol(runoff_array)] * 86400 / 1e6 #CMS --> m^3/day --> MCM/day
   runoff_array$Time <- as.Date(runoff_array$Time)
   
@@ -130,7 +123,7 @@ Agent_Geum_Network <- function(supply_scenario = 1, demand_scenario = 1,  opt_ye
   df_R1 <- matrix(NA, nrow= opt, ncol=3, dimnames = list(1:opt, c('Agr','Ind','Env')))
   Dam1 <- NA
   Dam1_Spillway <- 0
-  Release_Yongdam <- sweep(read.csv("Yongdam_Release.csv")[2:length(read.csv("Yongdam_Release.csv"))],1,c(31, 30, 31,31, 28, 31, 30, 31, 30, 31, 31, 30),FUN="/")
+  Release_Yongdam <- sweep(read.csv("data/Yongdam_Release.csv")[2:length(read.csv("data/Yongdam_Release.csv"))],1,c(31, 30, 31,31, 28, 31, 30, 31, 30, 31, 31, 30),FUN="/")
   Release_Yongdam <- as.data.frame(lapply(Release_Yongdam, rep, c(31, 30, 31, 31, 28, 31, 30, 31, 30, 31, 31, 30)))
   Release_Yongdam[,6:length(Release_Yongdam)] <- Release_Yongdam[,6:length(Release_Yongdam)] * supply_scenario
   Yongdam <- Release_Yongdam
@@ -147,7 +140,7 @@ Agent_Geum_Network <- function(supply_scenario = 1, demand_scenario = 1,  opt_ye
   df_R2 <- matrix(NA, nrow= opt, ncol=3, dimnames = list( 1:opt,c('Agr', 'Ind','Env')))
   Dam2 <- NA
   Dam2_Spillway <- 0
-  Release_Daecheong <- sweep(read.csv("Daecheong_Release.csv")[2:length(read.csv("Daecheong_Release.csv"))],1,c(31, 30, 31,31, 28, 31, 30, 31, 30, 31, 31, 30),FUN="/")
+  Release_Daecheong <- sweep(read.csv("data/Daecheong_Release.csv")[2:length(read.csv("data/Daecheong_Release.csv"))],1,c(31, 30, 31,31, 28, 31, 30, 31, 30, 31, 31, 30),FUN="/")
   Release_Daecheong <- as.data.frame(lapply(Release_Daecheong, rep, c(31, 30, 31,31, 28, 31, 30, 31, 30, 31, 31, 30)))
   Release_Daecheong[,6:length(Release_Daecheong)] <- Release_Daecheong[,6:length(Release_Daecheong)] * supply_scenario
   Daecheong <- Release_Daecheong
@@ -166,7 +159,7 @@ Agent_Geum_Network <- function(supply_scenario = 1, demand_scenario = 1,  opt_ye
   waterway <- 3.45 # 보령댐 도수로
   df_waterway <- matrix(NA,nrow=opt)
   Dam3_Spillway <- 0
-  Release_Boryeong <- sweep(read.csv("Boryeong_Release.csv")[2:length(read.csv("Boryeong_Release.csv"))],1,c(31, 30, 31,31, 28, 31, 30, 31, 30, 31, 31, 30),FUN="/")
+  Release_Boryeong <- sweep(read.csv("data/Boryeong_Release.csv")[2:length(read.csv("data/Boryeong_Release.csv"))],1,c(31, 30, 31,31, 28, 31, 30, 31, 30, 31, 31, 30),FUN="/")
   Release_Boryeong <- as.data.frame(lapply(Release_Boryeong, rep,c(31, 30, 31,31, 28, 31, 30, 31, 30, 31, 31, 30)))
   Release_Boryeong[,6:length(Release_Boryeong)] <- Release_Boryeong[,6:length(Release_Boryeong)] * supply_scenario
   Boryeong <- Release_Boryeong
@@ -175,13 +168,13 @@ Agent_Geum_Network <- function(supply_scenario = 1, demand_scenario = 1,  opt_ye
   
   # 농업용 저수지
   ## 백곡저수지
-  Dam4_Stor <- as.numeric(read.csv("농업기반시설 시설제원.csv") %>% filter(표준코드 == 4375010009) %>% 
+  Dam4_Stor <- as.numeric(read.csv("data/농업기반시설 시설제원.csv") %>% filter(표준코드 == 4375010009) %>% 
                             select(유효저수량) * 1000 /1000000 ) # 유효저수량
-  dam4_Stor_Nor <- as.numeric(read.csv("농업기반시설 시설제원.csv") %>% filter(표준코드 == 4375010009) %>% 
+  dam4_Stor_Nor <- as.numeric(read.csv("data/농업기반시설 시설제원.csv") %>% filter(표준코드 == 4375010009) %>% 
                                 select(유효저수량) * 1000 /1000000)  # 유효저수량
-  dam4_Stor_Min <- as.numeric(read.csv("농업기반시설 시설제원.csv") %>% filter(표준코드 == 4375010009) %>% 
+  dam4_Stor_Min <- as.numeric(read.csv("data/농업기반시설 시설제원.csv") %>% filter(표준코드 == 4375010009) %>% 
                                 select(사수량) * 1000 /1000000) # 사수량
-  dam4_Stor_Max <- as.numeric(read.csv("농업기반시설 시설제원.csv") %>% filter(표준코드 == 4375010009) %>% 
+  dam4_Stor_Max <- as.numeric(read.csv("data/농업기반시설 시설제원.csv") %>% filter(표준코드 == 4375010009) %>% 
                                 select(총저수량) * 1000 /1000000) # 유효저수량
   df_R4 <- matrix(NA, nrow=opt, ncol=1, dimnames = list( 1:opt,c('Agr')))
   df_dam4_Stor <- matrix(NA,nrow =  opt)
@@ -191,13 +184,13 @@ Agent_Geum_Network <- function(supply_scenario = 1, demand_scenario = 1,  opt_ye
   Dam4 <- NA
   
   ## 탑정저수지
-  Dam5_Stor <- as.numeric(read.csv("농업기반시설 시설제원.csv") %>% filter(표준코드 == 4423010045) %>% 
+  Dam5_Stor <- as.numeric(read.csv("data/농업기반시설 시설제원.csv") %>% filter(표준코드 == 4423010045) %>% 
                             select(유효저수량) * 1000 /1000000) # 유효저수량
-  dam5_Stor_Nor <- as.numeric(read.csv("농업기반시설 시설제원.csv") %>% filter(표준코드 == 4423010045) %>% 
+  dam5_Stor_Nor <- as.numeric(read.csv("data/농업기반시설 시설제원.csv") %>% filter(표준코드 == 4423010045) %>% 
                                 select(유효저수량) * 1000 /1000000)  # 유효저수량
-  dam5_Stor_Min <- as.numeric(read.csv("농업기반시설 시설제원.csv") %>% filter(표준코드 == 4423010045) %>% 
+  dam5_Stor_Min <- as.numeric(read.csv("data/농업기반시설 시설제원.csv") %>% filter(표준코드 == 4423010045) %>% 
                                 select(사수량) * 1000 /1000000) # 사수량
-  dam5_Stor_Max <- as.numeric(read.csv("농업기반시설 시설제원.csv") %>% filter(표준코드 == 4423010045) %>% 
+  dam5_Stor_Max <- as.numeric(read.csv("data/농업기반시설 시설제원.csv") %>% filter(표준코드 == 4423010045) %>% 
                                 select(총저수량) * 1000 /1000000) # 총 저수용량
   df_R5 <- matrix(NA, nrow=opt, ncol=1, dimnames = list( 1:opt,c('Agr')))
   df_dam5_Stor <- matrix(NA,nrow =  opt)
@@ -209,7 +202,7 @@ Agent_Geum_Network <- function(supply_scenario = 1, demand_scenario = 1,  opt_ye
   org_demand_dam <- demand_dam
   
   # 발전용수
-  river_intake <- read.csv("하천수허가량(금강홍수통제소).csv")
+  river_intake <- read.csv("data/하천수허가량(금강홍수통제소).csv")
   df_power <- matrix(NA,nrow = opt,ncol = 3)
   demand_power <- matrix(NA,nrow = opt,ncol = 3)
   demand_power[,1] <- filter(river_intake,시설물명 == "무주양수발전소") %>%
@@ -248,7 +241,7 @@ Agent_Geum_Network <- function(supply_scenario = 1, demand_scenario = 1,  opt_ye
                       Intake11 = c("병천취수장","현도취수장"),
                       Intake12 = c("백곡취수장"))
   
-  Intake_demand <- read.csv("intake_filter_reservoir.csv") %>%
+  Intake_demand <- read.csv("data/intake_filter_reservoir.csv") %>%
     group_by(INTAKE1NM) %>%
     summarise(USE1M = sum(USE1M),
               USE2M = sum(USE2M),

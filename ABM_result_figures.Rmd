@@ -1,0 +1,1382 @@
+---
+title: "ABM_Rmarkdown"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("G:/My Drive/University of Seoul/Agent-based model")
+library(ggplot2)
+library(reshape2)
+library(dplyr)
+library(lubridate)
+library(tidyr)
+library(writexl)
+source("inflow_history.R")
+source("Agent_based_Geum_diversion_v4.R")
+```
+
+## Agent-based model
+
+This is an R Markdown format used for publishing markdown documents to GitHub. When you click the **Knit** button all R code chunks are run and a markdown file (.md) suitable for publishing to GitHub is generated.
+
+## Executing ABM
+
+```{r include=FALSE}
+
+set.seed(1125)
+
+with_ABM_new_diversion <- Agent_Geum_Network_Diversion(ABM=TRUE,opt_year = 39)
+without_ABM_new_diversion <- Agent_Geum_Network_Diversion(ABM=FALSE, opt_year = 39)
+```
+
+```{r}
+with_ABM_new_diversion$Gini_coefficient
+without_ABM_new_diversion$Gini_coefficient
+
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r  echo=FALSE}
+
+
+without_ABM_new_diversion$gg_agr
+ggsave("figures/fig3.png")
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r colormap, fig.height=4, fig.width=3}
+
+# --- column labels 먼저 정의! ---
+col_labels <- c("Intake", "Agr", "Power")
+
+rows <- c(with_ABM_new_diversion$breaker$first_row,
+          with_ABM_new_diversion$breaker$second_row,
+          with_ABM_new_diversion$breaker$third_row)
+
+cols <- c(with_ABM_new_diversion$breaker$first_col,
+          with_ABM_new_diversion$breaker$second_col,
+          with_ABM_new_diversion$breaker$third_col)
+
+# --- NA 제거 + 범위 밖 값 제거(중요) ---
+valid <- !is.na(rows) & !is.na(cols) &
+         rows >= 1 & rows <= 14 &
+         cols >= 1 & cols <= 3
+
+rows <- rows[valid]
+cols <- cols[valid]
+
+# --- count matrix ---
+heat_matrix <- matrix(0, nrow = 14, ncol = 3)
+
+for (k in seq_along(rows)) {
+  r <- rows[k]
+  c <- cols[k]
+  heat_matrix[r, c] <- heat_matrix[r, c] + 1
+}
+
+df_heat <- melt(heat_matrix)
+colnames(df_heat) <- c("row", "col", "count")
+
+# --- labels / factors for plotting ---
+df_heat <- df_heat %>%
+  mutate(
+    row_f = factor(row, levels = 14:1),                 # show 14 at top
+    col_f = factor(col, levels = 1:3, labels = col_labels),
+    label = ifelse(count == 0, "", as.character(count)),
+    count_plot = ifelse(count == 0, NA, count)          # optional: hide 0 tiles
+  )
+
+ggplot(df_heat, aes(x = col_f, y = row_f, fill = count_plot)) +
+  geom_tile(color = "black", linewidth = 0.3) +
+  geom_text(aes(label = label), size = 3) +
+  scale_x_discrete(position = "top") +
+  scale_y_discrete(breaks = factor(14:1), labels = 14:1) +
+  scale_fill_gradient(
+    low  = "white",
+    high = "red",
+    name = "Number of\nABM triggers",
+    na.value = "white"
+  ) +
+  labs(x = NULL, y = NULL) +
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.ticks = element_blank(),
+    panel.grid = element_blank(),
+    axis.text.x.top = element_text(size = 12),
+    axis.text.y = element_text(size = 10),
+    legend.position = "right"
+  )
+
+ggsave("figures/fig6.png")
+```
+
+# Cumulative plots
+
+```{r}
+DF <- data.frame(Intake = 1:12, 
+                 with_ABM = with_ABM_new_diversion$Table_intake[,2], 
+                 without_ABM =  without_ABM_new_diversion$Table_intake[,2])
+DFlong <- DF |> pivot_longer(cols = -Intake,names_to = "ABM")
+
+ggplot(DFlong,aes(x=Intake, y = value,fill= ABM)) + 
+  geom_col(position="dodge") +
+  theme_bw() +ylab("Days of Water Supply Availability")+
+  ggtitle("취수장의 용수공급가능일수") +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.05)), limits = NULL) +
+  coord_cartesian(ylim = c(1500, NA))
+```
+
+```{r}
+
+diff <- with_ABM_new_diversion$Table_agr[,2] - without_ABM_new_diversion$Table_agr[,2]
+
+DF <- data.frame(Agr = 1:14, 
+                 with_ABM = with_ABM_new_diversion$Table_agr[,2], 
+                 without_ABM =  without_ABM_new_diversion$Table_agr[,2])
+DFlong <- DF |> pivot_longer(cols = -Agr,names_to = "ABM")
+
+ggplot(DFlong, aes(x = factor(Agr), y = value, fill = ABM)) + 
+  geom_col(position = "dodge") +
+  theme_bw() +
+  ylab("Days of Water Supply Availability") +
+  ggtitle("Cumulative Reliability") +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.05)), limits = NULL) +
+  coord_cartesian(ylim = c(500, NA)) +
+  scale_x_discrete(breaks = as.character(1:14))
+
+
+```
+
+```{r}
+DF <- data.frame(
+  Agr = 1:14, 
+  with_ABM = with_ABM_new_diversion$Table_agr[,2], 
+  without_ABM = without_ABM_new_diversion$Table_agr[,2]
+)
+
+DFlong <- DF |>
+  tidyr::pivot_longer(cols = -Agr, names_to = "ABM")
+
+diff <- DF$with_ABM - DF$without_ABM
+
+df_diff <- data.frame(
+  Agr  = 1:14,
+  diff = diff
+) |>
+  dplyr::filter(!is.na(diff) & diff != 0)
+
+ggplot(DFlong, aes(x = factor(Agr), y = value, fill = ABM)) + 
+  geom_col(position = position_dodge(width = 0.9)) +
+  
+  geom_text(
+    data = df_diff,
+    aes(
+      x = factor(Agr),
+      y = pmax(
+            DF$with_ABM[Agr],
+            DF$without_ABM[Agr]
+          ) + 200,
+      label = sprintf("%+.1f", diff),
+      color = diff > 0
+    ),
+    inherit.aes = FALSE,
+    size = 5,
+    fontface = "bold"
+  ) +
+  
+  scale_color_manual(
+    values = c("TRUE" = "darkgreen", "FALSE" = "red")
+  ) +
+  guides(color = "none") +
+  
+  scale_fill_discrete(labels = c("with_ABM" = "with ABM", 
+                                 "without_ABM" = "without ABM")) +
+  scale_x_discrete(
+  breaks = as.character(1:14),
+  labels = paste(1:14))+
+  xlab("Agricultural Stakeholders")+
+  theme_bw() +
+  ylab("Days of Water Supply Availability") +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.05))) +
+  coord_cartesian(ylim = c(500, NA)) +
+  scale_x_discrete(breaks = as.character(1:14))
+
+ggsave("figures/fig7.png")
+
+```
+
+
+
+```{r}
+
+
+DF <- data.frame(Power = 1:3, 
+                 with_ABM = with_ABM_new_diversion$Table_power[,2], 
+                 without_ABM =  without_ABM_new_diversion$Table_power[,2])
+DFlong <- DF |> pivot_longer(cols = -Power,names_to = "ABM")
+
+ggplot(DFlong,aes(x=Power, y = value,fill= ABM)) + 
+  geom_col(position="dodge") +
+  theme_bw() +ylab("Days of Water Supply Availability")
+```
+
+# Drought Events
+
+```{r}
+# Drought Event 1: 1994 - 1997 ------------------------------------------------------------------
+
+ggplot(out$series, aes(x = Time, y = icdefit)) +
+  geom_line(color = "red") +
+  geom_hline(aes(yintercept = 0), linetype = "dashed") +
+  
+  # 🔶 1994–1997 강조 박스
+  annotate("rect",
+           xmin = as.Date("1994-01-01"),
+           xmax = as.Date("1997-12-31"),
+           ymin = -Inf,
+           ymax = Inf,
+           alpha = 0.5,          # 투명도
+           fill = "grey") +
+  
+  # 🔶 2014–2017 강조 박스
+  annotate("rect",
+           xmin = as.Date("2014-01-01"),
+           xmax = as.Date("2017-12-31"),
+           ymin = -Inf,
+           ymax = Inf,
+           alpha = 0.5,
+           fill = "grey") +
+  
+  labs(#title = "Drought Deficit Over Time",
+       y = "Deficit (MCM)",
+       x = "Year") +
+  
+  scale_x_date(
+    date_breaks = "1 year",
+    date_labels = "%Y"
+  ) +
+  
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(angle = 90, vjust = 0.5)
+  )
+
+
+```
+
+```{r}
+library(dplyr)
+
+# Event 구간 정의
+event_windows <- tibble(
+  event = c("Event 1", "Event 2"),
+  start = as.Date(c("1994-01-01","2014-01-01")),
+  end   = as.Date(c("1997-12-31","2017-12-31"))
+)
+
+# 구간별 duration/magnitude 계산 (out$series는 deficit 있음)
+event_stats <- event_windows %>%
+  rowwise() %>%
+  mutate(
+    duration = sum(out$series$Time >= start & out$series$Time <= end & out$series$deficit > 0),
+    magnitude = sum(out$series$deficit[out$series$Time >= start & out$series$Time <= end], na.rm=TRUE),
+    intensity = magnitude / duration
+  ) %>%
+  ungroup()
+
+print(event_stats)
+
+```
+
+
+
+```{r}
+ggplot(out$series, aes(x = Time, y = deficit)) +
+  geom_line(color = "red") +
+  geom_hline(aes(yintercept = 0), linetype = "dashed") +
+  
+  # 🔶 1994–1997 강조 박스 (Event 1)
+  annotate("rect",
+           xmin = as.Date("1994-01-01"),
+           xmax = as.Date("1997-12-31"),
+           ymin = -Inf,
+           ymax = Inf,
+           alpha = 0.5,
+           fill = "grey") +
+  
+  annotate("text",
+           x = as.Date("1996-1-15"),   # 박스 가운데쯤
+           y = 590,
+           label = "Event 1",
+           size = 4,
+           fontface = "bold") +
+  
+  # 🔶 2014–2017 강조 박스 (Event 2)
+  annotate("rect",
+           xmin = as.Date("2014-01-01"),
+           xmax = as.Date("2017-12-31"),
+           ymin = -Inf,
+           ymax = Inf,
+           alpha = 0.5,
+           fill = "grey") +
+  
+  annotate("text",
+           x = as.Date("2016-1-15"),
+           y = 590,
+           label = "Event 2",
+           size = 4,
+           fontface = "bold") +
+  
+  labs(
+       y = "Deficit (MCM)",
+       x = "Year") +
+  
+  scale_x_date(
+    date_breaks = "1 year",
+    date_labels = "%Y"
+  ) +
+  scale_y_continuous(limits = c(NA, 600)) +
+  
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(angle = 90, vjust = 0.5)
+  )
+ggsave("figures/fig9.png")
+```
+
+
+
+# Result
+
+```{r}
+start_date <- as.Date("1981-10-01")
+n_days <- nrow(with_ABM_new_diversion$df_intake)
+
+date_seq <- seq(start_date, by = "day", length.out = n_days)
+```
+
+# Agr 5
+
+```{r}
+ts_df <- data.frame(
+  Date = date_seq,
+  Intake4_withABM    = with_ABM_new_diversion$df_intake[, 4],
+  Intake4_withoutABM = without_ABM_new_diversion$df_intake[,4],
+  Agr5_withABM       = with_ABM_new_diversion$df_agr[, 5],
+  Agr5_withoutABM    = without_ABM_new_diversion$df_agr[,5],
+  Intake5_withABM       = with_ABM_new_diversion$df_intake[,5],
+  Intake5_withoutABM    = without_ABM_new_diversion$df_intake[,5]
+)
+
+# long-format으로 변환 (Stakeholder × Scenario)
+ts_long <- ts_df |>
+  pivot_longer(
+    cols = -Date,
+    names_to   = c("Stakeholder", "Scenario"),
+    names_pattern = "(.*)_(withABM|withoutABM)",
+    values_to  = "value"
+  ) |>
+  mutate(
+    Stakeholder = factor(Stakeholder,
+                         levels = c("Intake4", "Agr5", "Intake5"),
+                         labels = c("Intake 4 (tributary donor)", "Agr 5 (recipient)", "Intake 5 (main donor)")),
+    Scenario = factor(Scenario,
+                      levels = c("withoutABM", "withABM"),
+                      labels = c("Without ABM", "With ABM"))
+  )
+
+
+
+
+## ===== 1. Drought Event 1 (1994–1997) =====
+
+drought1_long <- ts_long |>
+  filter(
+    Date >= as.Date("1994-01-01"),
+    Date <= as.Date("1997-12-31")
+  )
+
+
+gg_drought1_Agr5 <- ggplot(drought1_long,
+                          aes(x = Date, y = value, color = Scenario, linetype = Scenario)) +
+  geom_line(linewidth = 0.5) +
+  #scale_y_continuous(limits = c(0.002, NA)) +
+  facet_wrap(~ Stakeholder, ncol = 1, scales = "free_y") +
+  
+  scale_color_manual(values = c("Without ABM" = "grey40",
+                                "With ABM"    = "red")) +
+  labs(
+    x = "Time",
+    y = "Daily Supplied Water (MCM)"
+  ) +
+  theme_bw() +
+  theme(
+    strip.background = element_rect(fill = "white"),
+    strip.text = element_text(face = "bold"),
+    legend.position = "top",
+    axis.text.x = element_text( vjust = 0.5),
+    plot.title = element_text(hjust = 0.5)
+  )
+
+gg_drought1_Agr5
+
+ggsave("figures/fig10.png")
+
+```
+
+```{r}
+drought2_long <- ts_long |>
+  filter(
+    Date >= as.Date("2014-01-01"),
+    Date <= as.Date("2017-12-31")
+  )
+
+gg_drought2_Agr5 <- ggplot(drought2_long,
+                          aes(x = Date, y = value, color = Scenario, linetype = Scenario)) +
+  geom_line(linewidth = 0.5) +
+  facet_wrap(~ Stakeholder, ncol = 1, scales = "free_y") +
+  scale_color_manual(values = c("Without ABM" = "grey40",
+                                "With ABM"    = "red")) +
+  labs(
+    x = "Time",
+    y = "Daily Supplied Water (MCM)"
+  ) +
+  theme_bw() +
+  theme(
+    strip.background = element_rect(fill = "white"),
+    strip.text = element_text(face = "bold"),
+    legend.position = "top",
+    axis.text.x = element_text( vjust = 0.5),
+    plot.title = element_text(hjust = 0.5)
+  )
+
+gg_drought2_Agr5
+
+ggsave("figures/fig11.png")
+
+```
+
+# Agr 11
+
+```{r}
+
+ts_df <- data.frame(
+  Date = date_seq,
+  Intake11_withABM    = with_ABM_new_diversion$df_intake[, 11],
+  Intake11_withoutABM = without_ABM_new_diversion$df_intake[, 11],
+  Agr11_withABM       = with_ABM_new_diversion$df_agr[, 11],
+  Agr11_withoutABM    = without_ABM_new_diversion$df_agr[, 11],
+  Agr12_withABM       = with_ABM_new_diversion$df_agr[, 12],
+  Agr12_withoutABM    = without_ABM_new_diversion$df_agr[, 12]
+)
+
+# long-format으로 변환 (Stakeholder × Scenario)
+ts_long <- ts_df |>
+  pivot_longer(
+    cols = -Date,
+    names_to   = c("Stakeholder", "Scenario"),
+    names_pattern = "(.*)_(withABM|withoutABM)",
+    values_to  = "value"
+  ) |>
+  mutate(
+    Stakeholder = factor(Stakeholder,
+                         levels = c("Intake11", "Agr11", "Agr12"),
+                         labels = c("Intake 11 (tributary donor)", "Agr 11 (recipient)", "Agr 12 (main donor)")),
+    Scenario = factor(Scenario,
+                      levels = c("withoutABM", "withABM"),
+                      labels = c("Without ABM", "With ABM"))
+  )
+
+
+
+
+## ===== 1. Drought Event 1 (1994–1997) =====
+
+drought1_long <- ts_long |>
+  filter(
+    Date >= as.Date("1994-01-01"),
+    Date <= as.Date("1997-12-31")
+  )
+
+gg_drought1_Agr11 <- ggplot(drought1_long,
+                          aes(x = Date, y = value, color = Scenario, linetype = Scenario)) +
+  geom_line(linewidth = 0.5) +
+  facet_wrap(~ Stakeholder, ncol = 1, scales = "free_y") +
+  scale_color_manual(values = c("Without ABM" = "grey40",
+                                "With ABM"    = "red")) +
+  labs(
+    x = "Time",
+    y = "Daily Supplied Water (MCM)"
+  ) +
+  theme_bw() +
+  theme(
+    strip.background = element_rect(fill = "white"),
+    strip.text = element_text(face = "bold"),
+    legend.position = "top",
+    axis.text.x = element_text( vjust = 0.5),
+    plot.title = element_text(hjust = 0.5)
+  )
+
+gg_drought1_Agr11
+
+ggsave("figures/fig14.png")
+
+```
+
+```{r}
+
+## ===== 2. Drought Event 2 (2014–2017) =====
+
+drought2_long <- ts_long |>
+  filter(
+    Date >= as.Date("2014-01-01"),
+    Date <= as.Date("2017-12-31")
+  )
+
+gg_drought2_Agr11 <- ggplot(drought2_long,
+                          aes(x = Date, y = value, color = Scenario, linetype = Scenario)) +
+  geom_line(linewidth = 0.5) +
+  facet_wrap(~ Stakeholder, ncol = 1, scales = "free_y") +
+  scale_color_manual(values = c("Without ABM" = "grey40",
+                                "With ABM"    = "red")) +
+  labs(
+    x = "Time",
+    y = "Daily Supplied Water (MCM)"
+  ) +
+  theme_bw() +
+  theme(
+    strip.background = element_rect(fill = "white"),
+    strip.text = element_text(face = "bold"),
+    legend.position = "top",
+    axis.text.x = element_text(angle = 90, vjust = 0.5),
+    plot.title = element_text(hjust = 0.5)
+  )
+
+gg_drought2_Agr11
+
+ggsave("figures/fig15.png")
+
+```
+
+# Result: Agr 13
+
+```{r}
+ts_df <- data.frame(
+  Date = date_seq,
+  Agr13_withABM       = with_ABM_new_diversion$df_agr[, 13],
+  Agr13_withoutABM    = without_ABM_new_diversion$df_agr[, 13],
+  Agr14_withABM       = with_ABM_new_diversion$df_agr[, 14],
+  Agr14_withoutABM    = without_ABM_new_diversion$df_agr[, 14]
+)
+
+
+# long-format으로 변환 (Stakeholder × Scenario)
+ts_long <- ts_df |>
+  pivot_longer(
+    cols = -Date,
+    names_to   = c("Stakeholder", "Scenario"),
+    names_pattern = "(.*)_(withABM|withoutABM)",
+    values_to  = "value"
+  ) |>
+  mutate(
+    Stakeholder = factor(Stakeholder,
+                         levels = c("Agr13", "Agr14"),
+                         labels = c("Agr 13 (recipient)", "Agr 14 (main donor)")),
+    Scenario = factor(Scenario,
+                      levels = c("withoutABM", "withABM"),
+                      labels = c("Without ABM", "With ABM"))
+  )
+
+
+
+
+## ===== 1. Drought Event 1 (1994–1997) =====
+
+drought1_long <- ts_long |>
+  filter(
+    Date >= as.Date("1994-01-01"),
+    Date <= as.Date("1997-12-31")
+  )
+
+gg_drought1_Agr14 <- ggplot(drought1_long,
+                          aes(x = Date, y = value, color = Scenario, linetype = Scenario)) +
+  geom_line(linewidth = 0.5) +
+  facet_wrap(~ Stakeholder, ncol = 1, scales = "free_y") +
+  scale_color_manual(values = c("Without ABM" = "grey40",
+                                "With ABM"    = "red")) +
+  labs(
+    x = "Time",
+    y = "Daily Supplied Water (MCM)"
+  ) +
+  theme_bw() +
+  theme(
+    strip.background = element_rect(fill = "white"),
+    strip.text = element_text(face = "bold"),
+    legend.position = "top",
+    axis.text.x = element_text(vjust = 0.5),
+    plot.title = element_text(hjust = 0.5)
+  )
+
+gg_drought1_Agr14
+
+ggsave("figures/fig16.png")
+
+```
+
+```{r}
+
+
+## ===== 2. Drought Event 2 (2014–2017) =====
+
+drought2_long <- ts_long |>
+  filter(
+    Date >= as.Date("2014-01-01"),
+    Date <= as.Date("2017-12-31")
+  )
+
+gg_drought2_Agr14<- ggplot(drought2_long,
+                          aes(x = Date, y = value, color = Scenario, linetype = Scenario)) +
+  geom_line(linewidth = 0.5) +
+  facet_wrap(~ Stakeholder, ncol = 1, scales = "free_y") +
+  scale_color_manual(values = c("Without ABM" = "grey40",
+                                "With ABM"    = "red")) +
+  labs(
+    x = "Time",
+    y = "Daily Supplied Water (MCM)"
+  ) +
+  theme_bw() +
+  theme(
+    strip.background = element_rect(fill = "white"),
+    strip.text = element_text(face = "bold"),
+    legend.position = "top",
+    axis.text.x = element_text(angle = 90, vjust = 0.5),
+    plot.title = element_text(hjust = 0.5)
+  )
+
+
+gg_drought2_Agr14
+
+ggsave("figures/fig17.png")
+```
+
+# Result: Agr 7
+
+```{r}
+
+ts_df <- data.frame(
+  Date = date_seq,
+  Intake6_withABM    = with_ABM_new_diversion$df_intake[, 6],
+  Intake6_withoutABM = without_ABM_new_diversion$df_intake[, 6],
+  Agr7_withABM       = with_ABM_new_diversion$df_agr[, 7],
+  Agr7_withoutABM    = without_ABM_new_diversion$df_agr[, 7],
+  Intake7_withABM       = with_ABM_new_diversion$df_intake[, 7],
+  Intake7_withoutABM    = without_ABM_new_diversion$df_intake[, 7]
+)
+
+
+# long-format으로 변환 (Stakeholder × Scenario)
+ts_long <- ts_df |>
+  pivot_longer(
+    cols = -Date,
+    names_to   = c("Stakeholder", "Scenario"),
+    names_pattern = "(.*)_(withABM|withoutABM)",
+    values_to  = "value"
+  ) |>
+  mutate(
+    Stakeholder = factor(Stakeholder,
+                         levels = c("Intake6", "Agr7", "Intake7"),
+                         labels = c("Intake 6 (tributary donor)", "Agr 7 (recipient)", "Intake 7 (main donor)")),
+    Scenario = factor(Scenario,
+                      levels = c("withoutABM", "withABM"),
+                      labels = c("Without ABM", "With ABM"))
+  )
+
+
+
+
+## ===== 1. Drought Event 1 (1994–1997) =====
+
+drought1_long <- ts_long |>
+  filter(
+    Date >= as.Date("1994-01-01"),
+    Date <= as.Date("1997-12-31")
+  )
+
+gg_drought1_Agr7 <- ggplot(drought1_long,
+                          aes(x = Date, y = value, color = Scenario, linetype = Scenario)) +
+  geom_line(linewidth = 0.5) +
+  facet_wrap(~ Stakeholder, ncol = 1, scales = "free_y") +
+  scale_color_manual(values = c("Without ABM" = "grey40",
+                                "With ABM"    = "red")) +
+  labs(
+    x = "Time",
+    y = "Daily Supplied Water (MCM)"
+  ) +
+  theme_bw() +
+  theme(
+    strip.background = element_rect(fill = "white"),
+    strip.text = element_text(face = "bold"),
+    legend.position = "top",
+    axis.text.x = element_text(vjust = 0.5),
+    plot.title = element_text(hjust = 0.5)
+  )
+
+gg_drought1_Agr7
+
+ggsave("figures/fig12.png")
+```
+
+```{r}
+
+## ===== 2. Drought Event 2 (2014–2017) =====
+
+drought2_long <- ts_long |>
+  filter(
+    Date >= as.Date("2014-01-01"),
+    Date <= as.Date("2017-12-31")
+  )
+
+gg_drought2_Agr7 <- ggplot(drought2_long,
+                          aes(x = Date, y = value, color = Scenario, linetype = Scenario)) +
+  geom_line(linewidth = 0.5) +
+  facet_wrap(~ Stakeholder, ncol = 1, scales = "free_y") +
+  scale_color_manual(values = c("Without ABM" = "grey40",
+                                "With ABM"    = "red")) +
+  labs(
+    x = "Time",
+    y = "Daily Supplied Water (MCM)"
+  ) +
+  theme_bw() +
+  theme(
+    #text = element_text(family = "Helvetica"),
+    strip.background = element_rect(fill = "white"),
+    strip.text = element_text(face = "bold"),
+    legend.position = "top",
+    axis.text.x = element_text(vjust = 0.5),
+    plot.title = element_text(hjust = 0.5)
+  )
+
+gg_drought2_Agr7
+
+ggsave("figures/fig13.png")
+
+```
+
+## Drought Event 1 (1994–1997)
+
+```{r, fig.width=10, fig.height=5}
+library(gridExtra)
+library(cowplot) 
+# Add a) b) labels and remove individual legends
+p1 <- gg_drought1_Agr11 + 
+  ggtitle("a)") + 
+  theme(legend.position = "none",
+        plot.title = element_text(hjust = 0, face = "bold", size = 14))
+
+p2 <- gg_drought1_Agr14 + 
+  ggtitle("b)") + 
+  theme(legend.position = "none",
+        plot.title = element_text(hjust = 0, face = "bold", size = 14),
+        axis.title.y = element_blank())  # ← 오른쪽 plot y축 레이블 제거
+
+main_grid <- plot_grid(p1, p2, ncol = 2, align = "hv", axis = "tblr")
+
+# 공유 legend
+legend_shared <- get_legend(
+  gg_drought1_Agr11 + theme(legend.position = "bottom")
+)
+
+plot_grid(main_grid, legend_shared, ncol = 1, rel_heights = c(10, 1))
+
+
+ggsave("figures/fig_drought1.png")
+
+
+
+```
+
+
+## Drought Event 2 (2014–2017) 
+
+```{r, fig.width=10, fig.height=5}
+p1 <- gg_drought2_Agr5 + 
+  ggtitle("a)") + 
+  theme(legend.position = "none",
+        plot.title = element_text(hjust = 0, face = "bold", size = 14))
+
+p2 <- gg_drought2_Agr7 + 
+  ggtitle("b)") + 
+  theme(legend.position = "none",
+        plot.title = element_text(hjust = 0, face = "bold", size = 14),
+        axis.title.y = element_blank())  # ← 오른쪽 plot y축 레이블 제거
+
+main_grid <- plot_grid(p1, p2, ncol = 2, align = "hv", axis = "tblr")
+
+# 공유 legend
+legend_shared <- get_legend(
+  gg_drought1_Agr11 + theme(legend.position = "bottom")
+)
+
+plot_grid(main_grid, legend_shared, ncol = 1, rel_heights = c(10, 1))
+
+ggsave("figures/fig_drought2.png")
+
+```
+
+
+# Cumulative lines
+
+## recipients 
+
+```{r}
+cumline <- data.frame(days = 1:c(39*365), cumsum_withoutABM= cumsum(without_ABM_new_diversion$df_agr[,5]),cumsum_withABM= cumsum(with_ABM_new_diversion$df_agr[,5]))
+r1 <- ggplot(data = cumline, aes(x = days)) +
+  geom_line(aes(y = cumsum_withoutABM, color = "Without ABM")) +
+  geom_line(aes(y = cumsum_withABM, color = "With ABM")) +
+  scale_color_manual(
+    values = c("Without ABM" = "blue", "With ABM" = "red"),
+    name = "Scenario") +
+  labs(
+    title = "Agr 5",
+    x = "Days",
+    y = "Cumulative withdrawal (MCM)"
+  ) +
+  theme_classic() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+r1
+```
+
+```{r}
+## Intake 11
+cumline <- data.frame(days = 1:c(39*365), cumsum_withoutABM= cumsum(without_ABM_new_diversion$df_intake[,11]),cumsum_withABM= cumsum(with_ABM_new_diversion$df_intake[,11]))
+d3 <- ggplot(data = cumline, aes(x = days)) +
+  geom_line(aes(y = cumsum_withoutABM, color = "Without ABM")) +
+  geom_line(aes(y = cumsum_withABM, color = "With ABM")) +
+  scale_color_manual(
+    values = c("Without ABM" = "blue", "With ABM" = "red"),
+   name = "Scenario" ) +
+  labs(
+    title = "Intake 11",
+    x = "Days",
+    y = "Cumulative withdrawal (MCM)"
+  ) +
+  theme_classic()+
+  theme(plot.title = element_text(hjust = 0.5))
+
+d3
+```
+
+```{r}
+
+## Agr 12 recipient
+cumline <- data.frame(days = 1:c(39*365), cumsum_withoutABM= cumsum(without_ABM_new_diversion$df_agr[,13]),cumsum_withABM= cumsum(with_ABM_new_diversion$df_agr[,13]))
+r4 <- ggplot(data = cumline, aes(x = days)) +
+  geom_line(aes(y = cumsum_withoutABM, color = "Without ABM")) +
+  geom_line(aes(y = cumsum_withABM, color = "With ABM")) +
+  scale_color_manual(
+    values = c("Without ABM" = "blue", "With ABM" = "red"),
+    name = "Scenario" ) +
+  labs(
+    title = "Agr 13",
+    x = "Days",
+    y = "Cumulative withdrawal (MCM)"
+  ) +
+  theme_classic()+
+  theme(plot.title = element_text(hjust = 0.5))
+
+r4
+
+```
+
+```{r}
+# Agr 7
+cumline <- data.frame(days = 1:c(39*365), cumsum_withoutABM= cumsum(without_ABM_new_diversion$df_agr[,7]),cumsum_withABM= cumsum(with_ABM_new_diversion$df_agr[,7]))
+r2<-ggplot(data = cumline, aes(x = days)) +
+  geom_line(aes(y = cumsum_withoutABM, color = "Without ABM")) +
+  geom_line(aes(y = cumsum_withABM, color = "With ABM")) +
+   scale_color_manual(
+    values = c("Without ABM" = "blue", "With ABM" = "red"),
+    name = "Scenario") +
+  labs(
+    title = "Agr 7",
+    x = "Days",
+    y = "Cumulative withdrawal (MCM)"
+  ) +
+  theme_classic()+
+  theme(plot.title = element_text(hjust = 0.5))
+
+r2
+
+```
+
+```{r}
+
+
+# Agr 10
+cumline <- data.frame(days = 1:c(39*365), cumsum_withoutABM= cumsum(without_ABM_new_diversion$df_agr[,11]),cumsum_withABM= cumsum(with_ABM_new_diversion$df_agr[,11]))
+r3<-ggplot(data = cumline, aes(x = days)) +
+  geom_line(aes(y = cumsum_withoutABM, color = "Without ABM")) +
+  geom_line(aes(y = cumsum_withABM, color = "With ABM")) +
+   scale_color_manual(
+    values = c("Without ABM" = "blue", "With ABM" = "red"),
+    name = "Scenario") +
+  labs(
+    title = "Agr 11",
+    x = "Days",
+    y = "Cumulative withdrawal (MCM)"
+  ) +
+  theme_classic()+
+  theme(plot.title = element_text(hjust = 0.5))
+r3
+```
+
+```{r}
+
+## donor
+cumline <- data.frame(days = 1:c(39*365), cumsum_withoutABM= cumsum(without_ABM_new_diversion$df_agr[,13]),cumsum_withABM= cumsum(with_ABM_new_diversion$df_agr[,13]))
+r4<-ggplot(data = cumline, aes(x = days)) +
+  geom_line(aes(y = cumsum_withoutABM, color = "Without ABM")) +
+  geom_line(aes(y = cumsum_withABM, color = "With ABM")) +
+  scale_color_manual(
+    values = c("Without ABM" = "blue", "With ABM" = "red"),
+    name = "Scenario" ) +
+  labs(
+    title = "Agr 13",
+    x = "Days",
+    y = "Cumulative withdrawal (MCM)"
+  ) +
+  theme_classic()+
+  theme(plot.title = element_text(hjust = 0.5))
+
+r4
+
+```
+
+## donors
+
+```{r}
+cumline <- data.frame(days = 1:c(39*365), cumsum_withoutABM= cumsum(without_ABM_new_diversion$df_intake[,4]),cumsum_withABM= cumsum(with_ABM_new_diversion$df_intake[,4]))
+d1<-ggplot(data = cumline, aes(x = days)) +
+  geom_line(aes(y = cumsum_withoutABM, color = "Without ABM")) +
+  geom_line(aes(y = cumsum_withABM, color = "With ABM")) +
+  scale_color_manual(
+    values = c("Without ABM" = "blue", "With ABM" = "red"),
+    name = "Scenario" ) +
+  labs(
+    title = "Intake 4",
+    x = "Days",
+    y = "Cumulative withdrawal (MCM)"
+  ) +
+  theme_classic()+
+  theme(plot.title = element_text(hjust = 0.5))
+
+d1
+```
+
+```{r}
+cumline <- data.frame(days = 1:c(39*365), cumsum_withoutABM= cumsum(without_ABM_new_diversion$df_agr[,12]),cumsum_withABM= cumsum(with_ABM_new_diversion$df_agr[,12]))
+ggplot(data = cumline, aes(x = days)) +
+  geom_line(aes(y = cumsum_withoutABM, color = "Without ABM")) +
+  geom_line(aes(y = cumsum_withABM, color = "With ABM")) +
+  #scale_color_manual(
+  #  values = c("Without ABM" = "blue", "With ABM" = "red"),
+  #  name = "Scenario" ) +
+  labs(
+    title = "Agr 12",
+    x = "Days",
+    y = "Cumulative withdrawal (MCM)"
+  ) +
+  theme_classic() +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r}
+cumline <- data.frame(days = 1:c(39*365), cumsum_withoutABM= cumsum(without_ABM_new_diversion$df_intake[,11]),cumsum_withABM= cumsum(with_ABM_new_diversion$df_intake[,11]))
+d3<-ggplot(data = cumline, aes(x = days)) +
+  geom_line(aes(y = cumsum_withoutABM, color = "Without ABM")) +
+  geom_line(aes(y = cumsum_withABM, color = "With ABM")) +
+  scale_color_manual(
+    values = c("Without ABM" = "blue", "With ABM" = "red"),
+    name = "Scenario") +
+  labs(
+    title = "Intake 11",
+    x = "Days",
+    y = "Cumulative withdrawal (MCM)"
+  ) +
+  theme_classic()+
+  theme(plot.title = element_text(hjust = 0.5))
+d3
+```
+
+```{r}
+
+## donor
+cumline <- data.frame(days = 1:c(39*365), cumsum_withoutABM= cumsum(without_ABM_new_diversion$df_agr[,14]),cumsum_withABM= cumsum(with_ABM_new_diversion$df_agr[,14]))
+d4<-ggplot(data = cumline, aes(x = days)) +
+  geom_line(aes(y = cumsum_withoutABM, color = "Without ABM")) +
+  geom_line(aes(y = cumsum_withABM, color = "With ABM")) +
+  scale_color_manual(
+    values = c("Without ABM" = "blue", "With ABM" = "red"),
+    name = "Scenario" ) +
+  labs(
+    title = "Agr 14",
+    x = "Days",
+    y = "Cumulative withdrawal (MCM)"
+  ) +
+  theme_classic()+
+  theme(plot.title = element_text(hjust = 0.5))
+
+d4
+```
+
+```{r}
+cumline <- data.frame(days = 1:c(39*365), cumsum_withoutABM= cumsum(without_ABM_new_diversion$df_intake[,6]),cumsum_withABM= cumsum(with_ABM_new_diversion$df_intake[,6]))
+d2<-ggplot(data = cumline, aes(x = days)) +
+  geom_line(aes(y = cumsum_withoutABM, color = "Without ABM")) +
+  geom_line(aes(y = cumsum_withABM, color = "With ABM")) +
+  scale_color_manual(
+    values = c("Without ABM" = "blue", "With ABM" = "red"),
+    name = "Scenario") +
+  labs(
+    title = "Intake 6",
+    x = "Days",
+    y = "Cumulative withdrawal (MCM)"
+  ) +
+  theme_classic()+
+  theme(plot.title = element_text(hjust = 0.5))
+d2
+```
+
+```{r, fig.width = 8, fig.height = 12}
+library(gridExtra)
+library(cowplot) 
+cumline <- data.frame(
+  days = 1:c(39*365),
+  cumsum_withoutABM = cumsum(without_ABM_new_diversion$df_intake[,6]),
+  cumsum_withABM = cumsum(with_ABM_new_diversion$df_intake[,6])
+)
+
+# ✅ 공유 legend용 플롯
+p_legend <- ggplot(data = cumline, aes(x = days)) +
+  geom_line(aes(y = cumsum_withoutABM, color = "Without ABM")) +
+  geom_line(aes(y = cumsum_withABM, color = "With ABM")) +
+  scale_color_manual(
+    values = c("Without ABM" = "blue", "With ABM" = "red"),
+    name = "Scenario"
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "bottom",
+    legend.title = element_text(size = 16, face = "bold"),
+    legend.text  = element_text(size = 16
+                                )
+  )
+r1 <- r1 + ggtitle("a) Agr 5") + theme(legend.position = "none", plot.title = element_text(hjust = 0, face = "bold", size = 16))
+d1 <- d1 + ggtitle("b) Intake 4") + theme(legend.position = "none", plot.title = element_text(hjust = 0, face = "bold", size = 16))
+r2 <- r2 + ggtitle("c) Agr 7") + theme(legend.position = "none", plot.title = element_text(hjust = 0, face = "bold", size = 16))
+d2 <- d2 + ggtitle("d) Intake 6") + theme(legend.position = "none", plot.title = element_text(hjust = 0, face = "bold", size = 16))
+r3 <- r3 + ggtitle("e) Agr 11") + theme(legend.position = "none", plot.title = element_text(hjust = 0, face = "bold", size = 16))
+d3 <- d3 + ggtitle("f) Intake 11") + theme(legend.position = "none", plot.title = element_text(hjust = 0, face = "bold", size = 16))
+r4 <- r4 + ggtitle("g) Agr 13") + theme(legend.position = "none", plot.title = element_text(hjust = 0, face = "bold", size = 16))
+d4 <- d4 + ggtitle("h) Agr 14") + theme(legend.position = "none", plot.title = element_text(hjust = 0, face = "bold", size = 16))
+
+# ✅ 2. 크기 정렬
+aligned <- align_plots(r1, d1, r2, d2,
+                       r3, d3, r4, d4,
+                       align = "hv",
+                       axis = "tblr")
+
+# ✅ 3. 그리드 배치
+main_grid <- plot_grid(
+  aligned[[1]], aligned[[2]],
+  aligned[[3]], aligned[[4]],
+  aligned[[5]], aligned[[6]],
+  aligned[[7]], aligned[[8]],
+  ncol = 2, nrow = 4
+)
+
+# ✅ 4. legend 추출
+legend_grob <- get_legend(p_legend)
+
+# ✅ 5. 최종 출력
+plot_grid(
+  main_grid,
+  legend_grob,
+  ncol = 1,
+  rel_heights = c(20, 1)
+)
+
+ggsave("figures/fig8.png", width = 12, height = 16, dpi = 300)
+```
+```{r}
+with_ABM_new_diversion$breaker
+```
+
+
+
+
+```{r validation}
+
+df_ratio <- as.data.frame(without_ABM_new_diversion$df_agr / without_ABM_new_diversion$demand_agr)
+colnames(df_ratio) <- paste0("Agr", seq_len(ncol(df_ratio)))
+
+start_date <- as.Date("1981-10-01")
+df_ratio <- df_ratio %>%
+  mutate(Date = seq(start_date, by = "day", length.out = nrow(df_ratio))) %>%
+  relocate(Date)
+
+df_2018 <- df_ratio %>%
+  filter(Date >= as.Date("2018-01-01"),
+         Date <= as.Date("2018-12-31"))
+
+mat_2018 <- as.matrix(select(df_2018, -Date))
+mat_2018[!is.finite(mat_2018)] <- NA  # Inf, -Inf, NaN -> NA
+
+lack_days_2018 <- 153 - colSums(mat_2018, na.rm = TRUE)
+
+
+
+df_2019 <- df_ratio %>%
+  filter(Date >= as.Date("2019-01-01"),
+         Date <= as.Date("2019-12-31"))
+
+mat_2019 <- as.matrix(select(df_2019, -Date))
+mat_2019[!is.finite(mat_2019)] <- NA  # Inf, -Inf, NaN -> NA
+
+lack_days_2019 <- 153 - colSums(mat_2019, na.rm = TRUE)
+
+
+df_2020 <- df_ratio %>%
+  filter(Date >= as.Date("2020-01-01"),
+         Date <= as.Date("2020-12-31"))
+
+mat_2020 <- as.matrix(select(df_2020, -Date))
+mat_2020[!is.finite(mat_2020)] <- NA  # Inf, -Inf, NaN -> NA
+
+lack_days_2020  <- 153 - colSums(mat_2020, na.rm = TRUE)
+lack_days_2018
+lack_days_2019
+lack_days_2020
+
+
+```
+```{r}
+# ── 1. Reliability ratio ───────────────────────────────────────────────────
+df_ratio <- as.data.frame(
+  without_ABM_new_diversion$df_agr / without_ABM_new_diversion$demand_agr)
+colnames(df_ratio) <- paste0("Agr", seq_len(ncol(df_ratio)))
+
+start_date <- as.Date("1981-10-01")
+df_ratio <- df_ratio %>%
+  mutate(Date = seq(start_date, by = "day", length.out = nrow(df_ratio))) %>%
+  relocate(Date)
+
+# ── 2. Water shortage days 계산 (관개기 153일 기준) ────────────────────────
+calc_lack <- function(df_ratio, year) {
+  df_yr  <- df_ratio %>%
+    filter(Date >= as.Date(paste0(year, "-01-01")),
+           Date <= as.Date(paste0(year, "-12-31")))
+  mat <- as.matrix(select(df_yr, -Date))
+  mat[!is.finite(mat)] <- NA
+  # 공급 부족일: ratio < 1인 날 합산 (153 - sum(ratio)보다 정확)
+  shortage <- colSums(mat < 1, na.rm = TRUE)
+  shortage
+}
+
+lack_days_2018 <- calc_lack(df_ratio, 2018)
+lack_days_2019 <- calc_lack(df_ratio, 2019)
+lack_days_2020 <- calc_lack(df_ratio, 2020)
+
+lack_days_2018
+lack_days_2019
+lack_days_2020
+
+# ── 3. 실측 논 피해면적 (Table 1, National Drought Info Statistics 2020) ──
+paddy_wilting_ha <- c(
+  Agr1  = 0.0000,
+  Agr2  = 0.0000,
+  Agr3  = 0.5653,
+  Agr4  = 3.1867,
+  Agr5  = 19.3849,
+  Agr6  = 1.1143,
+  Agr7  = 5.1818,
+  Agr8  = 3.9110,
+  Agr9  = 4.7674,
+  Agr10 = 0.7286,
+  Agr11 = 47.6349,
+  Agr12 = 62.7743,
+  Agr13 = 34.5280,
+  Agr14 = 42.0238
+)
+
+# ── 4. Spearman 상관 (2018 기준) ──────────────────────────────────────────
+validation_df <- data.frame(
+  Subbasin     = names(lack_days_2018),
+  shortage_days = as.numeric(lack_days_2018),
+  paddy_ha      = paddy_wilting_ha
+)
+
+# rank
+validation_df <- validation_df %>%
+  mutate(
+    rank_shortage = rank(-shortage_days, ties.method = "min"),
+    rank_paddy    = rank(-paddy_ha,      ties.method = "min")
+  )
+
+spearman_result <- cor.test(
+  validation_df$shortage_days,
+  validation_df$paddy_ha,
+  method = "spearman"
+)
+
+cat("=== Spearman Rank Correlation (2018) ===\n")
+cat(sprintf("rho = %.3f\n", spearman_result$estimate))
+cat(sprintf("p   = %.3f\n", spearman_result$p.value))
+cat(sprintf("N   = %d\n",   nrow(validation_df)))
+
+table1 <- validation_df %>%
+  select(Subbasin, shortage_days, rank_shortage, 
+         paddy_ha, rank_paddy)
+
+colnames(table1) <- c(
+  "Subbasin",
+  "Water shortage days",
+  "Rank (shortage)",
+  "Paddy wilting (ha)",
+  "Rank (paddy)"
+)
+
+print(table1)
+```
+
+
+```{r table7}
+
+  # diversion 1: Node B --> Agr5
+  # diversion 2: Node C --> Agr7
+  # diversion 3: Node E --> Agr11
+  # diversion 4: Node F --> Agr13
+  # diversion 5: Intake 4 --> Agr5
+  # diversion 6: Intake 6 --> Agr7
+  # diversion 7: Intake 11 --> Agr11
+
+start_date <- as.Date("1981-10-01")
+n_days <- nrow(with_ABM_new_diversion$help)
+
+date_seq <- seq(start_date, by = "day", length.out = n_days)
+
+result <- data.frame(Date = date_seq, help= with_ABM_new_diversion$help)
+
+result
+
+
+result_E1 <- result |>
+  filter(
+    Date >= as.Date("1994-01-01"),
+    Date <= as.Date("1997-12-31")
+  )
+result_E2 <- result |>
+  filter(
+    Date >= as.Date("2014-01-01"),
+    Date <= as.Date("2017-12-31")
+  )
+print("Event 1")
+colSums(result_E1[2:8])
+sum(colSums(result_E1[2:8]))
+print("Event 2")
+colSums(result_E2[2:8])
+sum(colSums(result_E2[2:8]))
+
+
+
+sum(colSums(result_E2[2:8])) - sum(colSums(result_E1[2:8]))
+```
+
+```{r}
+
+
+activation <- data.frame(Date = date_seq, help= with_ABM_new_diversion$activation)
+
+activation_E1 <- activation |>
+  filter(
+    Date >= as.Date("1994-01-01"),
+    Date <= as.Date("1997-12-31")
+  )
+
+activation_E2 <- activation |>
+  filter(
+    Date >= as.Date("2014-01-01"),
+    Date <= as.Date("2017-12-31")
+  )
+print("Event 1")
+colSums(activation_E1[2:8])
+sum(colSums(activation_E1[2:8]))
+print("Event 2")
+colSums(activation_E2[2:8])
+sum(colSums(activation_E2[2:8]))
+
+```
+
+```{r, width=120}
+
+rel_with <- data.frame(Date = date_seq,
+                  With = with_ABM_new_diversion$df_agr /with_ABM_new_diversion$demand_agr)
+
+rel_without <- data.frame(Date = date_seq,
+                  Without = without_ABM_new_diversion$df_agr /without_ABM_new_diversion$demand_agr)
+
+rel_with_E1 <- rel_with |>
+  filter(
+    Date >= as.Date("1994-01-01"),
+    Date <= as.Date("1997-12-31")
+  )
+
+rel_without_E1 <- rel_without |>
+  filter(
+    Date >= as.Date("1994-01-01"),
+    Date <= as.Date("1997-12-31")
+  )
+
+rel_with_E2 <- rel_with |>
+  filter(
+    Date >= as.Date("2014-01-01"),
+    Date <= as.Date("2017-12-31")
+  )
+
+rel_without_E2 <- rel_without |>
+  filter(
+    Date >= as.Date("2014-01-01"),
+    Date <= as.Date("2017-12-31")
+  )
+
+print("Event 1: with")
+print(colSums(rel_with_E1[-1],na.rm=TRUE ))
+#sum(colSums(rel_with_E1[2:8],na.rm=TRUE ))
+
+print("Event 1: without")
+print(colSums(rel_without_E1[-1],na.rm=TRUE ))
+#sum(colSums(rel_without_E1[2:8],na.rm=TRUE ))
+
+print("Event 2: with")
+print(colSums(rel_with_E2[-1],na.rm=TRUE ))
+#sum(colSums(rel_with_E2[2:8],na.rm=TRUE ))
+
+print("Event 2: without")
+print(colSums(rel_without_E2[-1],na.rm=TRUE ))
+#sum(colSums(rel_without_E2[2:8],na.rm=TRUE ))
+
+
+```
+
+
+
+
+
+

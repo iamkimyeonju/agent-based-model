@@ -1,0 +1,508 @@
+---
+title: "Sensitivity Analysis: Agent Behavioral Scenarios for p_from_distance"
+author: "Yeonju Kim"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: flatly
+    code_folding: show
+    fig_width: 9
+    fig_height: 5
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+---
+
+## Overview
+
+This document examines how the shape of the distance-decay activation probability
+(`p_from_distance`) influences basin-wide equity and efficiency in the Geum River
+Basin ABM.  Three behavioral archetypes are compared:
+
+| Scenario | Label | Motivation |
+|---|---|---|
+| **Pro-social** | High, flat decay | Agents prioritize equity; willing to donate even to distant users |
+| **Bounded Rational** | Moderate decay (current default) | Agents balance own interest with awareness of network topology |
+| **Self-interested** | Steep, low decay | Agents rarely donate and strongly prefer nearby beneficiaries |
+
+A no-ABM baseline (ABM = FALSE) is also included for reference.
+
+---
+
+## 1. Setup
+
+```{r libraries}
+library(tidyverse)
+library(ggplot2)
+library(reshape2)
+library(reshape)
+library(patchwork)    # multi-panel figures
+library(knitr)        # kable tables
+```
+
+```{r source-v4}
+setwd("G:/My Drive/University of Seoul/Agent-based model")
+source("Agent_based_Geum_diversion_v4.R")
+```
+
+### 1.1 Simulation parameters
+
+```{r params}
+OPT_YEAR <- 39   # full 39-year historical period (set to 10 for a quick test run)
+SEED     <- 2025 # reproducibility
+SUPPLY   <- 1    # supply_scenario = 1 (no scaling)
+DEMAND   <- 1    # demand_scenario = 1 (no scaling)
+```
+
+### 1.2 Helper: suppress per-day print output
+
+```{r helper}
+run_silent <- function(...) {
+  out <- capture.output(result <- Agent_Geum_Network_Diversion(...))
+  result
+}
+```
+
+---
+
+## 2. Behavioral Scenario Definitions
+
+```{r scenarios}
+scenarios <- list(
+  "Pro-social"       = c(0.95, 0.80, 0.60, 0.40),
+  "Bounded Rational" = c(0.90, 0.60, 0.30, 0.10),   # current default
+  "Self-interested"  = c(0.50, 0.10, 0.02, 0.00)
+)
+
+# Distance-decay profile table for display
+dist_df <- map_dfr(names(scenarios), function(nm) {
+  tibble(Scenario = nm, Distance = 1:4,
+         Probability = scenarios[[nm]])
+}) %>%
+  mutate(Scenario = factor(Scenario, levels = names(scenarios)))
+
+kable(
+  dist_df %>% pivot_wider(names_from = Distance, values_from = Probability,
+                          names_prefix = "d = "),
+  caption = "Activation probability by Manhattan distance and scenario"
+)
+```
+
+### 2.1 Probability decay profiles
+
+```{r plot-decay, fig.cap="Distance-decay activation probability curves for the three behavioral scenarios"}
+scenario_colors <- c("Pro-social"       = "#2196F3",
+                     "Bounded Rational" = "#4CAF50",
+                     "Self-interested"  = "#F44336")
+
+ggplot(dist_df, aes(x = Distance, y = Probability,
+                    color = Scenario, group = Scenario)) +
+  geom_line(linewidth = 1.2) +
+  geom_point(size = 3.5) +
+  scale_x_continuous(breaks = 1:4,
+                     labels = c("1", "2", "3", "≥4")) +
+  scale_y_continuous(limits = c(0, 1), labels = scales::percent) +
+  scale_color_manual(values = scenario_colors) +
+  labs(x = "Manhattan Distance", y = "Activation Probability",
+       title = "Distance-Decay Profiles by Behavioral Scenario",
+       color = NULL) +
+  theme_bw(base_size = 14) +
+  theme(legend.position = "bottom")
+```
+
+---
+
+## 3. Run Simulations
+
+```{r run-sims, cache=TRUE}
+set.seed(SEED)
+res_no_abm <- run_silent(
+  supply_scenario = SUPPLY, demand_scenario = DEMAND,
+  opt_year = OPT_YEAR, ABM = FALSE
+)
+
+set.seed(SEED)
+res_prosocial <- run_silent(
+  supply_scenario = SUPPLY, demand_scenario = DEMAND,
+  opt_year = OPT_YEAR, ABM = TRUE,
+  p_vec = scenarios[["Pro-social"]]
+)
+
+set.seed(SEED)
+res_bounded <- run_silent(
+  supply_scenario = SUPPLY, demand_scenario = DEMAND,
+  opt_year = OPT_YEAR, ABM = TRUE,
+  p_vec = scenarios[["Bounded Rational"]]
+)
+
+set.seed(SEED)
+res_selfint <- run_silent(
+  supply_scenario = SUPPLY, demand_scenario = DEMAND,
+  opt_year = OPT_YEAR, ABM = TRUE,
+  p_vec = scenarios[["Self-interested"]]
+)
+
+results <- list(
+  "No ABM"           = res_no_abm,
+  "Pro-social"       = res_prosocial,
+  "Bounded Rational" = res_bounded,
+  "Self-interested"  = res_selfint
+)
+
+scenario_order <- c("No ABM", "Pro-social", "Bounded Rational", "Self-interested")
+```
+
+---
+
+## 4. Results
+
+### 4.1 System Equity: Gini Coefficient
+
+```{r gini-table}
+gini_df <- map_dfr(names(results), function(nm) {
+  r <- results[[nm]]
+  tibble(
+    Scenario     = nm,
+    Overall      = round(r$Gini_coefficient, 4),
+    Agricultural = round(r$Gini_agr,         4),
+    Intake       = round(r$Gini_intake,       4),
+    Hydropower   = round(r$Gini_power,        4)
+  )
+}) %>%
+  mutate(Scenario = factor(Scenario, levels = scenario_order))
+
+kable(gini_df,
+      caption = "Gini coefficients by scenario (lower = more equitable)")
+```
+
+```{r plot-gini, fig.cap="Overall Gini coefficient by behavioral scenario"}
+gini_long <- gini_df %>%
+  pivot_longer(-Scenario, names_to = "Sector", values_to = "Gini") %>%
+  mutate(Sector = factor(Sector, levels = c("Overall","Agricultural","Intake","Hydropower")))
+
+fill_colors <- c("No ABM"           = "#9E9E9E",
+                 "Pro-social"       = "#2196F3",
+                 "Bounded Rational" = "#4CAF50",
+                 "Self-interested"  = "#F44336")
+
+ggplot(gini_long, aes(x = Sector, y = Gini, fill = Scenario)) +
+  geom_bar(stat = "identity", position = position_dodge(0.8), width = 0.7) +
+  geom_text(aes(label = sprintf("%.4f", Gini)),
+            position = position_dodge(0.8), vjust = -0.4, size = 3) +
+  scale_fill_manual(values = fill_colors) +
+  labs(x = NULL, y = "Gini Coefficient",
+       title = "Equity Comparison by Sector and Behavioral Scenario",
+       fill = NULL) +
+  theme_bw(base_size = 14) +
+  theme(legend.position = "bottom")
+```
+
+---
+
+### 4.2 Agricultural Stakeholder Reliability
+
+```{r agr-reliability}
+agr_names <- paste("Agr", 1:14)
+
+agr_rel_df <- map_dfr(names(results), function(nm) {
+  r <- results[[nm]]
+  tibble(
+    Scenario    = nm,
+    Stakeholder = agr_names,
+    Reliability = colSums(r$df_agr / r$org_demand_agr, na.rm = TRUE)
+  )
+}) %>%
+  mutate(
+    Scenario    = factor(Scenario, levels = scenario_order),
+    Stakeholder = factor(Stakeholder, levels = agr_names)
+  )
+```
+
+```{r plot-agr-bar, fig.height=6, fig.cap="Sum of reliability for each agricultural stakeholder across the simulation period"}
+ggplot(agr_rel_df, aes(x = Stakeholder, y = Reliability, fill = Scenario)) +
+  geom_bar(stat = "identity", position = position_dodge(0.8), width = 0.75) +
+  scale_fill_manual(values = fill_colors) +
+  geom_hline(yintercept = OPT_YEAR * length(seq(as.Date("2025-05-01"),
+                                                 as.Date("2025-09-30"), by = "day")),
+             linetype = "dashed", color = "black", linewidth = 0.5) +
+  labs(x = NULL, y = "Sum of Reliability",
+       title = "Agricultural Stakeholder Reliability by Behavioral Scenario",
+       subtitle = "Dashed line = full demand satisfaction over simulation period",
+       fill = NULL) +
+  theme_bw(base_size = 14) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "bottom")
+```
+
+```{r plot-agr-diff, fig.height=3, fig.width=4, fig.cap="Change in agricultural reliability vs No-ABM baseline (positive = improvement)"}
+base_rel <- agr_rel_df %>%
+  filter(Scenario == "No ABM") %>%
+  select(Stakeholder, Base = Reliability)
+
+agr_diff_df <- agr_rel_df %>%
+  filter(Scenario != "No ABM") %>%
+  left_join(base_rel, by = "Stakeholder") %>%
+  mutate(Delta = Reliability - Base)
+
+ggplot(agr_diff_df, aes(x = Stakeholder, y = Delta, fill = Scenario)) +
+  geom_bar(stat = "identity", position = position_dodge(0.8), width = 0.75) +
+  geom_hline(yintercept = 0, linewidth = 0.6) +
+  scale_fill_manual(values = fill_colors[names(fill_colors) != "No ABM"]) +
+  labs(x = NULL, y = "ΔReliability (vs No-ABM)",
+   #    title = "Agricultural Reliability Change Relative to No-ABM Baseline",
+       fill = NULL) +
+  theme_bw(base_size = 14) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "bottom")
+
+ggsave("figures/fig_sensitivity.png")
+```
+
+---
+
+### 4.3 Diversion Activation Frequency
+
+```{r activation-freq}
+div_names <- paste0("div", 1:7)
+div_labels <- c(
+  "div1" = "Div1\n(B→Agr5)",
+  "div2" = "Div2\n(C→Agr7)",
+  "div3" = "Div3\n(E→Agr11)",
+  "div4" = "Div4\n(F→Agr13)",
+  "div5" = "Div5\n(Int4→Agr5)",
+  "div6" = "Div6\n(Int6→Agr7)",
+  "div7" = "Div7\n(Int11→Agr11)"
+)
+
+act_df <- map_dfr(names(results)[names(results) != "No ABM"], function(nm) {
+  r <- results[[nm]]
+  act <- r$activation
+  tibble(
+    Scenario  = nm,
+    Diversion = div_names,
+    Rate      = colMeans(act)   # proportion of days each diversion is active
+  )
+}) %>%
+  mutate(
+    Scenario  = factor(Scenario, levels = scenario_order),
+    Diversion = factor(Diversion, levels = div_names, labels = div_labels)
+  )
+```
+
+```{r plot-activation, fig.cap="Proportion of simulation days each diversion tunnel is active, by behavioral scenario"}
+ggplot(act_df, aes(x = Diversion, y = Rate, fill = Scenario)) +
+  geom_bar(stat = "identity", position = position_dodge(0.8), width = 0.7) +
+  scale_fill_manual(values = fill_colors[names(fill_colors) != "No ABM"]) +
+  scale_y_continuous(labels = scales::percent) +
+  labs(x = NULL, y = "Activation Rate",
+       title = "Diversion Activation Frequency by Behavioral Scenario",
+       fill = NULL) +
+  theme_bw(base_size = 14) +
+  theme(legend.position = "bottom")
+```
+
+---
+
+### 4.4 System Efficiency: Profit Ratio
+
+```{r efficiency-table}
+eff_df <- map_dfr(names(results), function(nm) {
+  r <- results[[nm]]
+  tibble(
+    Scenario   = nm,
+    Overall    = round(r$Profit_ratio,         4),
+    Agricultural = round(r$Profit_ratio_agr,   4),
+    Intake     = round(r$Profit_ratio_intake,   4),
+    Hydropower = round(r$Profit_ratio_power,    4)
+  )
+}) %>%
+  mutate(Scenario = factor(Scenario, levels = scenario_order))
+
+kable(eff_df,
+      caption = "Profit ratios by scenario (higher = more efficient)")
+```
+
+```{r plot-efficiency, fig.cap="System profit ratio by sector and behavioral scenario"}
+eff_long <- eff_df %>%
+  pivot_longer(-Scenario, names_to = "Sector", values_to = "ProfitRatio") %>%
+  mutate(Sector = factor(Sector, levels = c("Overall","Agricultural","Intake","Hydropower")))
+
+ggplot(eff_long, aes(x = Sector, y = ProfitRatio, fill = Scenario)) +
+  geom_bar(stat = "identity", position = position_dodge(0.8), width = 0.7) +
+  geom_text(aes(label = sprintf("%.4f", ProfitRatio)),
+            position = position_dodge(0.8), vjust = -0.4, size = 3) +
+  scale_fill_manual(values = fill_colors) +
+  scale_y_continuous(labels = scales::percent, limits = c(0, 1.05)) +
+  labs(x = NULL, y = "Profit Ratio",
+       title = "System Efficiency by Sector and Behavioral Scenario",
+       fill = NULL) +
+  theme_bw(base_size = 14) +
+  theme(legend.position = "bottom")
+```
+
+---
+
+### 4.5 Equity–Efficiency Trade-off
+
+```{r equity-efficiency, fig.cap="Equity–efficiency trade-off: lower Gini and higher profit ratio are both desirable"}
+tradeoff_df <- left_join(
+  gini_df %>% select(Scenario, Gini = Overall),
+  eff_df  %>% select(Scenario, ProfitRatio = Overall),
+  by = "Scenario"
+)
+
+ggplot(tradeoff_df, aes(x = Gini, y = ProfitRatio,
+                        color = Scenario, label = Scenario)) +
+  geom_point(size = 5) +
+  ggrepel::geom_label_repel(size = 4, show.legend = FALSE) +
+  scale_color_manual(values = c(fill_colors, "No ABM" = "#9E9E9E")) +
+  scale_y_continuous(labels = scales::percent) +
+  labs(x = "Gini Coefficient (↓ more equitable)",
+       y = "Profit Ratio (↑ more efficient)",
+       title = "Equity–Efficiency Trade-off by Behavioral Scenario",
+       color = NULL) +
+  theme_bw(base_size = 14) +
+  theme(legend.position = "none")
+```
+
+> Install `ggrepel` if not already available: `install.packages("ggrepel")`
+
+---
+
+### 4.6 Water Transfer Volumes
+
+```{r transfer-vol}
+help_col_labels <- c(
+  "help1 (B→Agr5 main)",  "help2 (C→Agr7 main)",
+  "help3 (E→Agr11 main)", "help4 (F→Agr13 main)",
+  "help5 (Int4→Agr5)",    "help6 (Int6→Agr7)",
+  "help7 (Int11→Agr11)"
+)
+
+transfer_df <- map_dfr(names(results)[names(results) != "No ABM"], function(nm) {
+  r <- results[[nm]]
+  tibble(
+    Scenario  = nm,
+    Diversion = help_col_labels,
+    Volume    = colSums(r$help, na.rm = TRUE)   # total MCM transferred
+  )
+}) %>%
+  mutate(
+    Scenario  = factor(Scenario, levels = scenario_order),
+    Diversion = factor(Diversion, levels = rev(help_col_labels))
+  )
+```
+
+```{r plot-transfer, fig.height=5, fig.cap="Total water volume transferred (MCM) through each diversion tunnel over the simulation period"}
+ggplot(transfer_df, aes(x = Diversion, y = Volume, fill = Scenario)) +
+  geom_bar(stat = "identity", position = position_dodge(0.8), width = 0.7) +
+  scale_fill_manual(values = fill_colors[names(fill_colors) != "No ABM"]) +
+  coord_flip() +
+  labs(x = NULL, y = "Total Transferred Volume (MCM)",
+       title = "Water Transfer Volume by Diversion and Behavioral Scenario",
+       fill = NULL) +
+  theme_bw(base_size = 14) +
+  theme(legend.position = "bottom")
+```
+
+---
+
+### 4.7 Reliability vs Equity: Pattern Consistency Across Scenarios
+
+```{r pattern-consistency, fig.width=10, fig.height=10, fig.cap="Top: Change in agricultural reliability vs No-ABM baseline per stakeholder. Bottom: Change in Gini coefficient vs No-ABM baseline per sector. Similar cross-scenario patterns in both panels suggest network topology drives outcomes more than probabilistic parameters."}
+
+# --- ΔReliability (reuse agr_diff_df from 4.2) ---
+p_rel <- ggplot(agr_diff_df, aes(x = Stakeholder, y = Delta, fill = Scenario)) +
+  geom_bar(stat = "identity", position = position_dodge(0.8), width = 0.75) +
+  geom_hline(yintercept = 0, linewidth = 0.6) +
+  scale_fill_manual(values = fill_colors[names(fill_colors) != "No ABM"]) +
+  labs(x = NULL, y = "ΔReliability (vs No-ABM)",
+       title = "(a) Agricultural Reliability Change",
+       fill = NULL) +
+  theme_bw(base_size = 16) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "none")
+
+# --- ΔGini: compute delta relative to No-ABM baseline ---
+base_gini <- gini_df %>%
+  filter(Scenario == "No ABM") %>%
+  select(Overall, Agricultural, Intake)
+
+gini_delta_df <- gini_df %>%
+  filter(Scenario != "No ABM") %>%
+  mutate(
+    Overall      = Overall      - base_gini$Overall,
+    Agricultural = Agricultural - base_gini$Agricultural,
+    Intake       = Intake       - base_gini$Intake
+  ) %>%
+  select(Scenario, Overall, Agricultural, Intake) %>%
+  pivot_longer(-Scenario, names_to = "Sector", values_to = "DeltaGini") %>%
+  mutate(Sector = factor(Sector, levels = c("Overall", "Agricultural", "Intake")))
+
+p_gini <- ggplot(gini_delta_df, aes(x = Sector, y = DeltaGini, fill = Scenario)) +
+  geom_bar(stat = "identity", position = position_dodge(0.8), width = 0.75) +
+  geom_hline(yintercept = 0, linewidth = 0.6) +
+  scale_fill_manual(values = fill_colors[names(fill_colors) != "No ABM"]) +
+  labs(x = NULL, y = "ΔGini (vs No-ABM)",
+       subtitle = "Negative = more equitable than No-ABM",
+       title = "(b) Gini Coefficient Change",
+       fill = NULL) +
+  theme_bw(base_size = 16) +
+  theme(axis.text.x = element_text( hjust = 1),
+        legend.position = "bottom")
+
+p_rel / p_gini + plot_layout(heights = c(1, 1))
+
+ggsave("figures/fig_sensitivity.png")
+
+```
+
+> **Interpretation guide:** If the three bars in panel (a) show the same directional pattern (same stakeholders improve/decline across all three scenarios), and panel (b) similarly shows consistent sign patterns across sectors, this supports the claim that **network topology — not the probability parameterisation — is the primary driver** of both reliability and equity outcomes.
+
+---
+
+## 5. Summary
+
+```{r summary-table}
+summary_df <- tibble(
+  Scenario        = factor(scenario_order, levels = scenario_order),
+  `p(d=1)`        = c(NA, unname(sapply(scenarios, `[`, 1))),
+  `p(d=2)`        = c(NA, unname(sapply(scenarios, `[`, 2))),
+  `p(d=3)`        = c(NA, unname(sapply(scenarios, `[`, 3))),
+  `p(d≥4)`        = c(NA, unname(sapply(scenarios, `[`, 4))),
+  `Gini (overall)`   = gini_df$Overall,
+  `Profit ratio`     = eff_df$Overall,
+  `Act. rate (mean)` = c(NA,
+    map_dbl(names(results)[names(results) != "No ABM"],
+            ~mean(colMeans(results[[.x]]$activation))))
+)
+
+kable(summary_df, digits = 4,
+      caption = "Summary of all behavioral scenarios")
+```
+
+### Key findings
+
+- **Pro-social** agents maximise equity (lowest Gini) by activating diversions
+  frequently, including across long distances. Any efficiency trade-off is
+  expected to be small because transfers are still physically constrained by
+  available water.
+
+- **Bounded Rational** (current default) represents the balanced mid-point:
+  meaningful equity improvement over the no-ABM baseline with modest distance
+  sensitivity.
+
+- **Self-interested** agents activate diversions rarely and only for immediate
+  neighbours, yielding equity outcomes close to the no-ABM baseline.
+  Diversion tunnels provide little benefit when agents rarely choose to use them.
+
+---
+
+*Generated with `sensitivity_analysis.Rmd`. To run headlessly as a plain R
+script, knit with `rmarkdown::render("sensitivity_analysis.Rmd")` or source
+the code chunks sequentially in an R session.*

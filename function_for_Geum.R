@@ -81,31 +81,31 @@ Geum_Network <- function(supply_scenario = 1, demand_scenario = 1, drought_scena
                       보령댐 = c(320305))
   
   runoff_array <- array(NA,dim = c(365,137,22),
-                        dimnames = list(c(1:365),colnames(read_csv("drought scenario/Sub-basin_runoff_GG_DU3_RP5.csv",show_col_types = FALSE))
+                        dimnames = list(c(1:365),colnames(read_csv("data/drought scenario/Sub-basin_runoff_GG_DU3_RP5.csv",show_col_types = FALSE))
                                         ,c(1:22)))
   
-  runoff_array[,,1] <- as.matrix(read.csv("drought scenario/Sub-basin_runoff_GG_DU3_RP5.csv",header=TRUE))
-  runoff_array[,,2] <- as.matrix(read.csv("drought scenario/Sub-basin_runoff_GG_DU3_RP10.csv",header=TRUE))
-  runoff_array[,,3] <- as.matrix(read.csv("drought scenario/Sub-basin_runoff_GG_DU3_RP20.csv",header=TRUE))
-  runoff_array[,,4] <- as.matrix(read.csv("drought scenario/Sub-basin_runoff_GG_DU3_RP30.csv",header=TRUE))
-  runoff_array[,,5] <- as.matrix(read.csv("drought scenario/Sub-basin_runoff_GG_DU4_RP5.csv",header=TRUE))
-  runoff_array[,,6] <- as.matrix(read.csv("drought scenario/Sub-basin_runoff_GG_DU4_RP10.csv",header=TRUE))
-  runoff_array[,,7] <- as.matrix(read.csv("drought scenario/Sub-basin_runoff_GG_DU4_RP20.csv",header=TRUE))
-  runoff_array[,,8] <- as.matrix(read.csv("drought scenario/Sub-basin_runoff_GG_DU4_RP30.csv",header=TRUE))
-  runoff_array[,,9] <- as.matrix(read.csv("drought scenario/Sub-basin_runoff_GG_DU5_RP5.csv",header=TRUE))
-  runoff_array[,,10] <- as.matrix(read.csv("drought scenario/Sub-basin_runoff_GG_DU5_RP10.csv",header=TRUE))
-  runoff_array[,,11] <- as.matrix(read.csv("drought scenario/Sub-basin_runoff_GG_DU5_RP20.csv",header=TRUE))
-  runoff_array[,,12] <- as.matrix(read.csv("drought scenario/Sub-basin_runoff_GG_DU5_RP30.csv",header=TRUE))
-  runoff_array[,,13] <- as.matrix(read.csv("drought scenario/Sub-basin_runoff_GG_DU6_RP5.csv",header=TRUE))
-  runoff_array[,,14] <- as.matrix(read.csv("drought scenario/Sub-basin_runoff_GG_DU6_RP10.csv",header=TRUE))
-  runoff_array[,,15] <- as.matrix(read.csv("drought scenario/Sub-basin_runoff_GG_DU6_RP20.csv",header=TRUE))
-  runoff_array[,,16] <- as.matrix(read.csv("drought scenario/Sub-basin_runoff_GG_DU6_RP30.csv",header=TRUE))
-  runoff_array[,,17] <- as.matrix(read.csv("drought scenario/Sub-basin_runoff_GG_DU12_RP10.csv",header=TRUE))
-  runoff_array[,,18] <- as.matrix(read.csv("drought scenario/Sub-basin_runoff_GG_DU12_RP20.csv",header=TRUE))
-  runoff_array[,,19] <- as.matrix(read.csv("drought scenario/Sub-basin_runoff_GG_DU12_RP30.csv",header=TRUE))
-  runoff_array[,,20] <- as.matrix(read.csv("drought scenario/Sub-basin_runoff_GG_DU12_RP50.csv",header=TRUE))
-  runoff_array[,,21] <- as.matrix(read.csv("drought scenario/Sub-basin_runoff_GG_DU24_RP50.csv",header=TRUE))
-  runoff_array[,,22] <- as.matrix(read.csv("drought scenario/Sub-basin_runoff_GG_DU24_RP100.csv",header=TRUE))
+  runoff_array[,,1] <- as.matrix(read.csv("data/drought scenario/Sub-basin_runoff_GG_DU3_RP5.csv",header=TRUE))
+  runoff_array[,,2] <- as.matrix(read.csv("data/drought scenario/Sub-basin_runoff_GG_DU3_RP10.csv",header=TRUE))
+  runoff_array[,,3] <- as.matrix(read.csv("data/drought scenario/Sub-basin_runoff_GG_DU3_RP20.csv",header=TRUE))
+  runoff_array[,,4] <- as.matrix(read.csv("data/drought scenario/Sub-basin_runoff_GG_DU3_RP30.csv",header=TRUE))
+  runoff_array[,,5] <- as.matrix(read.csv("data/drought scenario/Sub-basin_runoff_GG_DU4_RP5.csv",header=TRUE))
+  runoff_array[,,6] <- as.matrix(read.csv("data/drought scenario/Sub-basin_runoff_GG_DU4_RP10.csv",header=TRUE))
+  runoff_array[,,7] <- as.matrix(read.csv("data/drought scenario/Sub-basin_runoff_GG_DU4_RP20.csv",header=TRUE))
+  runoff_array[,,8] <- as.matrix(read.csv("data/drought scenario/Sub-basin_runoff_GG_DU4_RP30.csv",header=TRUE))
+  runoff_array[,,9] <- as.matrix(read.csv("data/drought scenario/Sub-basin_runoff_GG_DU5_RP5.csv",header=TRUE))
+  runoff_array[,,10] <- as.matrix(read.csv("data/drought scenario/Sub-basin_runoff_GG_DU5_RP10.csv",header=TRUE))
+  runoff_array[,,11] <- as.matrix(read.csv("data/drought scenario/Sub-basin_runoff_GG_DU5_RP20.csv",header=TRUE))
+  runoff_array[,,12] <- as.matrix(read.csv("data/drought scenario/Sub-basin_runoff_GG_DU5_RP30.csv",header=TRUE))
+  runoff_array[,,13] <- as.matrix(read.csv("data/drought scenario/Sub-basin_runoff_GG_DU6_RP5.csv",header=TRUE))
+  runoff_array[,,14] <- as.matrix(read.csv("data/drought scenario/Sub-basin_runoff_GG_DU6_RP10.csv",header=TRUE))
+  runoff_array[,,15] <- as.matrix(read.csv("data/drought scenario/Sub-basin_runoff_GG_DU6_RP20.csv",header=TRUE))
+  runoff_array[,,16] <- as.matrix(read.csv("data/drought scenario/Sub-basin_runoff_GG_DU6_RP30.csv",header=TRUE))
+  runoff_array[,,17] <- as.matrix(read.csv("data/drought scenario/Sub-basin_runoff_GG_DU12_RP10.csv",header=TRUE))
+  runoff_array[,,18] <- as.matrix(read.csv("data/drought scenario/Sub-basin_runoff_GG_DU12_RP20.csv",header=TRUE))
+  runoff_array[,,19] <- as.matrix(read.csv("data/drought scenario/Sub-basin_runoff_GG_DU12_RP30.csv",header=TRUE))
+  runoff_array[,,20] <- as.matrix(read.csv("data/drought scenario/Sub-basin_runoff_GG_DU12_RP50.csv",header=TRUE))
+  runoff_array[,,21] <- as.matrix(read.csv("data/drought scenario/Sub-basin_runoff_GG_DU24_RP50.csv",header=TRUE))
+  runoff_array[,,22] <- as.matrix(read.csv("data/drought scenario/Sub-basin_runoff_GG_DU24_RP100.csv",header=TRUE))
   
   runoff_array <- runoff_array * 86400 /1000000 #CMS --> m^3/day --> MCM/day
   
@@ -167,7 +167,7 @@ Geum_Network <- function(supply_scenario = 1, demand_scenario = 1, drought_scena
   df_dam1_Spillway <- matrix(NA, nrow = opt)
   df_R1 <- matrix(NA, nrow= opt, ncol=3, dimnames = list(1:opt, c('Agr','Ind','Env')))
   Dam1_Spillway <- 0
-  Release_Yongdam <- sweep(read.csv("Yongdam_Release.csv")[2:length(read.csv("Yongdam_Release.csv"))],1,c(31, 30, 31,31, 28, 31, 30, 31, 30, 31, 31, 30),FUN="/")
+  Release_Yongdam <- sweep(read.csv("data/Yongdam_Release.csv")[2:length(read.csv("data/Yongdam_Release.csv"))],1,c(31, 30, 31,31, 28, 31, 30, 31, 30, 31, 31, 30),FUN="/")
   Release_Yongdam <- as.data.frame(lapply(Release_Yongdam, rep, c(31, 30, 31,31, 28, 31, 30, 31, 30, 31, 31, 30)))
   Release_Yongdam <- bind_rows(replicate(2,Release_Yongdam, simplify=FALSE))
   Release_Yongdam[,6:length(Release_Yongdam)] <- Release_Yongdam[,6:length(Release_Yongdam)] * supply_scenario
@@ -181,7 +181,7 @@ Geum_Network <- function(supply_scenario = 1, demand_scenario = 1, drought_scena
   df_dam2_Spillway <- matrix(NA,nrow =  opt)
   df_R2 <- matrix(NA, nrow= opt, ncol=3, dimnames = list( 1:opt,c('Agr', 'Ind','Env')))
   Dam2_Spillway <- 0
-  Release_Daecheong <- sweep(read.csv("Daecheong_Release.csv")[2:length(read.csv("Daecheong_Release.csv"))],1,c(31, 30, 31,31, 28, 31, 30, 31, 30, 31, 31, 30),FUN="/")
+  Release_Daecheong <- sweep(read.csv("data/Daecheong_Release.csv")[2:length(read.csv("data/Daecheong_Release.csv"))],1,c(31, 30, 31,31, 28, 31, 30, 31, 30, 31, 31, 30),FUN="/")
   Release_Daecheong <- as.data.frame(lapply(Release_Daecheong, rep, c(31, 30, 31,31, 28, 31, 30, 31, 30, 31, 31, 30)))
   Release_Daecheong <- bind_rows(replicate(2,Release_Daecheong, simplify=FALSE))
   Release_Daecheong[,6:length(Release_Daecheong)] <- Release_Daecheong[,6:length(Release_Daecheong)] * supply_scenario
@@ -197,20 +197,20 @@ Geum_Network <- function(supply_scenario = 1, demand_scenario = 1, drought_scena
   waterway <- 3.45 # 보령댐 도수로
   df_waterway <- matrix(NA,nrow=opt)
   Dam3_Spillway <- 0
-  Release_Boryeong <- sweep(read.csv("Boryeong_Release.csv")[2:length(read.csv("Boryeong_Release.csv"))],1,c(31, 30, 31,31, 28, 31, 30, 31, 30, 31, 31, 30),FUN="/")
+  Release_Boryeong <- sweep(read.csv("data/Boryeong_Release.csv")[2:length(read.csv("data/Boryeong_Release.csv"))],1,c(31, 30, 31,31, 28, 31, 30, 31, 30, 31, 31, 30),FUN="/")
   Release_Boryeong <- as.data.frame(lapply(Release_Boryeong, rep,c(31, 30, 31,31, 28, 31, 30, 31, 30, 31, 31, 30)))
   Release_Boryeong <- bind_rows(replicate(2,Release_Boryeong, simplify=FALSE))
   Release_Boryeong[,6:length(Release_Boryeong)] <- Release_Boryeong[,6:length(Release_Boryeong)] * supply_scenario
   
   # 농업용 저수지
   ## 백곡저수지
-  Dam4_Stor <- as.numeric(read.csv("농업기반시설 시설제원.csv") %>% filter(표준코드 == 4375010009) %>% 
+  Dam4_Stor <- as.numeric(read.csv("data/농업기반시설 시설제원.csv") %>% filter(표준코드 == 4375010009) %>% 
                             select(유효저수량) * 1000 /1000000 ) # 유효저수량
-  dam4_Stor_Nor <- as.numeric(read.csv("농업기반시설 시설제원.csv") %>% filter(표준코드 == 4375010009) %>% 
+  dam4_Stor_Nor <- as.numeric(read.csv("data/농업기반시설 시설제원.csv") %>% filter(표준코드 == 4375010009) %>% 
                                 select(유효저수량) * 1000 /1000000)  # 유효저수량
-  dam4_Stor_Min <- as.numeric(read.csv("농업기반시설 시설제원.csv") %>% filter(표준코드 == 4375010009) %>% 
+  dam4_Stor_Min <- as.numeric(read.csv("data/농업기반시설 시설제원.csv") %>% filter(표준코드 == 4375010009) %>% 
                                 select(사수량) * 1000 /1000000) # 사수량
-  dam4_Stor_Max <- as.numeric(read.csv("농업기반시설 시설제원.csv") %>% filter(표준코드 == 4375010009) %>% 
+  dam4_Stor_Max <- as.numeric(read.csv("data/농업기반시설 시설제원.csv") %>% filter(표준코드 == 4375010009) %>% 
                                 select(총저수량) * 1000 /1000000) # 유효저수량
   df_R4 <- matrix(NA, nrow=opt, ncol=1, dimnames = list( 1:opt,c('Agr')))
   df_dam4_Stor <- matrix(NA,nrow =  opt)
@@ -219,13 +219,13 @@ Geum_Network <- function(supply_scenario = 1, demand_scenario = 1, drought_scena
   Dam4_Spillway <- 0
   
   ## 탑정저수지
-  Dam5_Stor <- as.numeric(read.csv("농업기반시설 시설제원.csv") %>% filter(표준코드 == 4423010045) %>% 
+  Dam5_Stor <- as.numeric(read.csv("data/농업기반시설 시설제원.csv") %>% filter(표준코드 == 4423010045) %>% 
                             select(유효저수량) * 1000 /1000000) # 유효저수량
-  dam5_Stor_Nor <- as.numeric(read.csv("농업기반시설 시설제원.csv") %>% filter(표준코드 == 4423010045) %>% 
+  dam5_Stor_Nor <- as.numeric(read.csv("data/농업기반시설 시설제원.csv") %>% filter(표준코드 == 4423010045) %>% 
                                 select(유효저수량) * 1000 /1000000)  # 유효저수량
-  dam5_Stor_Min <- as.numeric(read.csv("농업기반시설 시설제원.csv") %>% filter(표준코드 == 4423010045) %>% 
+  dam5_Stor_Min <- as.numeric(read.csv("data/농업기반시설 시설제원.csv") %>% filter(표준코드 == 4423010045) %>% 
                                 select(사수량) * 1000 /1000000) # 사수량
-  dam5_Stor_Max <- as.numeric(read.csv("농업기반시설 시설제원.csv") %>% filter(표준코드 == 4423010045) %>% 
+  dam5_Stor_Max <- as.numeric(read.csv("data/농업기반시설 시설제원.csv") %>% filter(표준코드 == 4423010045) %>% 
                                 select(총저수량) * 1000 /1000000) # 총 저수용량
   df_R5 <- matrix(NA, nrow=opt, ncol=1, dimnames = list( 1:opt,c('Agr')))
   df_dam5_Stor <- matrix(NA,nrow =  opt)
@@ -233,7 +233,7 @@ Geum_Network <- function(supply_scenario = 1, demand_scenario = 1, drought_scena
   Dam5_Spillway <- 0
   
   # 발전용수
-  river_intake <- read.csv("하천수허가량(금강홍수통제소).csv")
+  river_intake <- read.csv("data/하천수허가량(금강홍수통제소).csv")
   df_power <- matrix(NA,nrow = opt,ncol = 3)
   demand_power <- matrix(NA,nrow = opt,ncol = 3)
   demand_power[,1] <- filter(river_intake,시설물명 == "무주양수발전소") %>%
@@ -274,7 +274,7 @@ Geum_Network <- function(supply_scenario = 1, demand_scenario = 1, drought_scena
                       Intake14 = c("병천취수장","현도취수장"),
                       Intake15 = c("보령댐"))
   
-  Intake_demand <- read.csv("intake_filter_reservoir.csv") %>%
+  Intake_demand <- read.csv("data/intake_filter_reservoir.csv") %>%
     group_by(INTAKE1NM) %>%
     summarise(USE1M = sum(USE1M),
               USE2M = sum(USE2M),
